@@ -13,6 +13,7 @@
 #include "keyhooker.h"
 #include "history.h"
 #include "taskqueue.h"
+#include "searchview.h"
 #include "result.h"
 #include "defer.h"
 
@@ -21,13 +22,14 @@ std::unique_ptr<ShellCommandDelegate> cmd;
 std::unique_ptr<KeyHooker> hooker;
 std::unique_ptr<History> history;
 std::unique_ptr<TaskQueue<std::function<void()>>> queue;
+std::unique_ptr<SearchView> searchView;
 
-HANDLE quit = ::CreateEventA(nullptr, FALSE, FALSE, nullptr);
+//HANDLE quit = ::CreateEventA(nullptr, FALSE, FALSE, nullptr);
 bool stop = false;
-
-OVERLAPPED ol{};
-HANDLE readingCancel = ::CreateEventA(nullptr, TRUE, FALSE, nullptr);
+bool searching = false;
 HANDLE stdinHandle = ::GetStdHandle(STD_INPUT_HANDLE);
+HANDLE consoleIn{};
+OVERLAPPED overLapped{};
 
 std::thread hookThread;
 std::thread queueThread;
@@ -35,6 +37,7 @@ std::thread queueThread;
 void Prev();
 void Next();
 bool AmIActive();
+HANDLE OpenConsoleIn();
 std::optional<Error> Clear();
 std::optional<Error> Send(const std::string& message);
 
@@ -49,8 +52,30 @@ int main()
     // search histories
     // Send CTRL-C to child process
 
+    // SearchMode
+    // ダブルバッファしないとダメだろうな
+    // 今の状態を取って同じように表示しつつか
+    // なるほど。fish 検索中は選択とか出来ない
+    // 専用の screen
+    // 現在の情報を取ってサイズを取得して
+    // CreateConsoleScreenBuffer x 2
+    // 現在行だけ残して？
+    // WriteConsole で全部書くだけか
+    // stop, search とか  enum でもいいか?
+
     try {
+        // locale
         setlocale(LC_ALL, "");
+        
+
+        // Open CONIN$ to async read
+        consoleIn = OpenConsoleIn();
+        if (!consoleIn) {
+            auto err = ::GetLastError();
+            fprintf(stderr, "Failed to OpenConsoleIn %d", err);
+            return err;
+        }
+
 
         // history
         history.reset(new History());
@@ -60,9 +85,16 @@ int main()
             ihistoryFile->close();
         }
 
+
         // OVERLAPPED 
-        ol.hEvent = readingCancel;
-        DEFER([]() { ::CloseHandle(readingCancel); });
+        overLapped.hEvent = ::CreateEventA(nullptr, TRUE, FALSE, nullptr);
+        if (!overLapped.hEvent) {
+            auto err = ::GetLastError();
+            fprintf(stderr, "Failed to ::CreateEvent %d", err);
+            return err;
+        }
+        DEFER([]() { ::CloseHandle(overLapped.hEvent); });
+
 
         // cmd
         auto [value, error] = ShellCommandDelegate::Create();
@@ -71,18 +103,22 @@ int main()
             return error->code;
         }
         cmd.reset(*value);
+        // on internal cmd.exe exited
         cmd->OnExit([]()
             {
                 stop = true;
-                ::CancelIoEx(stdinHandle, &ol);
+                ::CancelIoEx(consoleIn, &overLapped);
             }
         );
+        DEFER([]() { cmd->Wait(); });
+
 
         // queue
         queue.reset(new TaskQueue<std::function<void()>>());
         queueThread = std::thread([&]() {
             queue->processTasks();
         });
+        DEFER([]() { queue->Stop(); queueThread.join(); });
          
         
         // key hook
@@ -103,6 +139,17 @@ int main()
                     Next();
                 });
                 return true;
+            case 'R':
+                if (::GetAsyncKeyState(VK_CONTROL) & 0x8000) {
+                    queue->enqueue([&]() {
+                        OutputDebugStringA("SearchMode!!\n");
+                        searching = true;
+                        ::CancelIoEx(consoleIn, &overLapped);
+                        });
+                    return true;
+                } else {
+                    return false;
+                }
             default:
                 return false;
             }
@@ -112,7 +159,18 @@ int main()
             hooker->Start();
         });
 
+        DEFER([]() { hooker->Stop(); hookThread.join(); });
 
+
+        // search view
+        {
+            auto [value, error] = SearchView::Create();
+            if (error) {
+                fprintf(stderr, "%s %d\n", error->message.c_str(), error->code);
+                return error->code;
+            }
+            searchView.reset(*value);
+        }
 
         // こっちの CTRL-C をどうやって子cmdへ送るのか?
         ::SetConsoleCtrlHandler([](DWORD event) -> BOOL {
@@ -120,6 +178,7 @@ int main()
             {
                 stop = true;
                 cmd->Exit();
+                searchView->Stop();
                 printf("\nBreak.\n");
                 return TRUE;
             }
@@ -129,38 +188,82 @@ int main()
 
 
         // reading input loop ////////////////
+        // TODO test when over length
+        std::string buf(4096, '\0');
         while (!stop) {
-            std::string buf(4096, '\0');
             DWORD read = 0;
-            if (!::ReadFile(stdinHandle, buf.data(), buf.size(), &read, &ol)) {
-                auto err = ::GetLastError();
-                if (err == ERROR_OPERATION_ABORTED) {
-                    OutputDebugStringA("Canceled to ReadFile\n");
+            buf.assign(buf.size(), '\0');
+            if (!::ReadFile(consoleIn, buf.data(), buf.size(), &read, &overLapped)) {
+                auto err = GetLastError();
+                if (err != ERROR_IO_PENDING) {
+                    fprintf(stderr, "Failed to ::ReadFile %d\n", err);
+                    return err;
                 }
-                else {
-                    OutputDebugStringA(std::format("Failed to ReadFile {:x}\n", err).c_str());
+                ::WaitForSingleObject(overLapped.hEvent, INFINITE);
+                DWORD transferred = 0;
+                if (!::GetOverlappedResult(consoleIn, &overLapped, &transferred, TRUE)) {
+                    auto err = ::GetLastError();
+                    if (err != ERROR_OPERATION_ABORTED) {
+                        fprintf(stderr, "Failed to ::GetOverlappedResult %d\n", err);
+                        return err;
+                    }
                 }
-                break;
             }
+            //std::string buf(4096, '\0');
+            //DWORD read = 0;
+            //if (!::ReadFile(stdinHandle, buf.data(), buf.size(), &read, nullptr)) {
+            //    auto err = ::GetLastError();
+            //    if (err == ERROR_OPERATION_ABORTED) {
+            //        OutputDebugStringA("Canceled to ReadFile\n");
+            //    }
+            //    else {
+            //        OutputDebugStringA(std::format("Failed to ReadFile {:x}\n", err).c_str());
+            //        break;
+            //    }
+            //}
             if (stop) break;
+            if (searching) {
+                ::CloseHandle(consoleIn);
+                hooker->Stop();
+                auto err = searchView->Show();
+                if (err) {
+                    fprintf(stderr, "%s %d", err->message.c_str(), err->code);
+                    return err->code;
+                }
+                searching = false;
+                consoleIn = OpenConsoleIn();
+                if (!consoleIn) {
+                    auto err = ::GetLastError();
+                    fprintf(stderr, "Failed to OpenConsoleIn %d", err);
+                    return err;
+                }
+                hooker->Start();
+                continue;
+            }
 
+            //auto pos = buf.find('\r');
+            //if (pos != std::string::npos) {
+            //    buf.resize(pos);
+
+            //}
+            std::string line;
             auto pos = buf.find('\r');
             if (pos != std::string::npos) {
-                buf.resize(pos);
-
-            }
-            pos = buf.find('\0');
-            if (pos != std::string::npos) {
-                buf.resize(pos);
+                line.assign(buf.begin(), buf.begin() + pos);
             }
 
-            history->Add(buf);
-            cmd->Input(buf + '\n');
+            history->Add(line);
+            cmd->Input(line + '\n');
+             
+            
             //cmd->Input(buf + '\n');
             //std::string line;
             //if (std::getline(std::cin, line)) {
             //    history->Add(line);
             //    cmd->Input(line + '\n');
+            //}
+            //else {
+            //    ::OutputDebugStringA("else");
             //}
             /*printf("%s\n", line.c_str());*/
         }
@@ -168,8 +271,8 @@ int main()
 
 
         // closing process
-        hooker->Stop();
-        queue->Stop();
+        //hooker->Stop();
+        //queue->Stop();
 
         // save histories
         auto [ohistoryFile, oresult] = GetHistoryFile();
@@ -179,9 +282,9 @@ int main()
         }
 
         // wait for stop
-        hookThread.join();
-        queueThread.join();
-        cmd->Wait();
+        //hookThread.join();
+        //queueThread.join();
+        //cmd->Wait();
 
         printf("Bye.\n");
        
@@ -326,4 +429,9 @@ Result<std::ofstream> GetHistoryFile()
         return { std::nullopt, Error(2, "Failed to Open history file") };
     }
     return { std::move(fileStream), std::nullopt };
+}
+
+HANDLE OpenConsoleIn() 
+{
+    return ::CreateFileA("CONIN$", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr);
 }

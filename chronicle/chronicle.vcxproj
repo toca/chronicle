@@ -146,6 +146,7 @@
     <ClCompile Include="chronicle.cpp" />
     <ClCompile Include="history.cpp" />
     <ClCompile Include="keyhooker.cpp" />
+    <ClCompile Include="searchview.cpp" />
     <ClCompile Include="ShellCommandDelegate.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -154,6 +155,7 @@
     <ClInclude Include="history.h" />
     <ClInclude Include="keyhooker.h" />
     <ClInclude Include="result.h" />
+    <ClInclude Include="searchview.h" />
     <ClInclude Include="shellcommanddelegate.h" />
     <ClInclude Include="taskqueue.h" />
   </ItemGroup>
