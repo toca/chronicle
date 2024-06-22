@@ -1,42 +1,46 @@
 #include "searchview.h"
+#include "searchcontroller.h"
+#include "prompt.h"
+#include "historian.h"
 
 #include <vector>
+#include <format>
+
 
 SearchView::SearchView() {}
 
-Result<SearchView*> SearchView::Create()
-{
-	auto self = new SearchView();
 
+std::optional<Error> SearchView::Init(const std::vector<std::string>& histories)
+{
 	HANDLE oh = ::GetStdHandle(STD_OUTPUT_HANDLE);
 	if (oh == INVALID_HANDLE_VALUE) {
 		auto err = ::GetLastError();
-		return { std::nullopt, Error(err, "Failed to ::GetStdHandle(STD_OUTPUT_HANDLE") };
+		return Error(err, "Failed to ::GetStdHandle(STD_OUTPUT_HANDLE");
 	}
-	self->stdOutHandle = oh;
+	this->stdOutHandle = oh;
 
 	HANDLE ih = ::GetStdHandle(STD_INPUT_HANDLE);
 	if (ih == INVALID_HANDLE_VALUE) {
 		auto err = ::GetLastError();
-		return { std::nullopt, Error(err, "Failed to ::GetStdHandle(STD_INPUT_HANDLE") };
+		return Error(err, "Failed to ::GetStdHandle(STD_INPUT_HANDLE");
 	}
-	self->stdInHandle = ih;
+	this->stdInHandle = ih;
 
 
 	// size
 	CONSOLE_SCREEN_BUFFER_INFOEX infoEx{};
 	infoEx.cbSize = sizeof(CONSOLE_SCREEN_BUFFER_INFOEX);
-	::GetConsoleScreenBufferInfoEx(self->stdOutHandle, &infoEx);
+	::GetConsoleScreenBufferInfoEx(this->stdOutHandle, &infoEx);
 
-	self->col = infoEx.srWindow.Right + 1;
-	self->row = infoEx.srWindow.Bottom + 1;
-	self->windowSize = { short(self->col), short(self->row) };
+	this->col = infoEx.srWindow.Right + 1;
+	this->row = infoEx.srWindow.Bottom + 1;
+	this->windowSize = { short(this->col), short(this->row) };
 
 	// screen buffer
 	HANDLE buffer1 = ::CreateConsoleScreenBuffer(GENERIC_READ | GENERIC_WRITE, 0, nullptr, CONSOLE_TEXTMODE_BUFFER, nullptr);
 	HANDLE buffer2 = ::CreateConsoleScreenBuffer(GENERIC_READ | GENERIC_WRITE, 0, nullptr, CONSOLE_TEXTMODE_BUFFER, nullptr);
-	self->screenBuffers[0] = buffer1;
-	self->screenBuffers[1] = buffer2;
+	this->screenBuffers[0] = buffer1;
+	this->screenBuffers[1] = buffer2;
 
 	DWORD mode = 0;
 	::GetConsoleMode(buffer1, &mode);
@@ -44,46 +48,67 @@ Result<SearchView*> SearchView::Create()
 	::SetConsoleMode(buffer1, mode);
 	::SetConsoleMode(buffer2, mode);
 
-	return { self, std::nullopt };
+	// init controller and models
+	this->prompt = std::make_shared<Prompt>();
+	this->historian = std::make_shared<Historian>(histories, this->windowSize.Y - 1);
+	this->controller = std::make_unique<SearchController>(this->prompt, this->historian);
+	this->controller->OnCancel([this]()
+		{
+			this->stop = true;
+		}
+	);
+	this->controller->OnCompleted([this](const std::string& s)
+		{
+			this->stop = true;
+			this->result = s;
+		}
+	);
+
+	return std::nullopt;
 }
 
-std::optional<Error> SearchView::Show()
+
+
+Result<std::string> SearchView::Show(const std::vector<std::string>& histories)
 {
-	// read current directory to show prompt
+	this->result = std::nullopt;
+
+	std::string title(1024, '\0');
+	::GetConsoleTitleA(title.data(), title.size());
+	::SetConsoleTitleA("Chronicle ++++ Searching ++++");
+	const auto error = this->Init(histories);
+	if (error) {
+		return { std::nullopt, error };
+	}
+	
 	CONSOLE_SCREEN_BUFFER_INFO screenBufInfo{};
 	if (!::GetConsoleScreenBufferInfo(this->stdOutHandle, &screenBufInfo)) {
 		auto err = ::GetLastError();
-		return Error(err, "Failed to ::GetConsoleScreenBufferInfo");
+		return { std::nullopt, Error(err, "Failed to ::GetConsoleScreenBufferInfo") };
 	}
-	auto bufferSize = (screenBufInfo.dwSize.X * screenBufInfo.dwSize.Y) - (screenBufInfo.dwCursorPosition.X * screenBufInfo.dwCursorPosition.Y);
-	std::string buf(bufferSize, '\0');
-	DWORD len = 0;
-	::ReadConsoleOutputCharacterA(this->stdOutHandle, buf.data(), buf.size(), { 0, screenBufInfo.dwCursorPosition.Y }, &len);
-	auto promptPos = buf.find('>');
-	if (promptPos == std::string::npos) {
-		return Error(2, "LogicalError");
-	}
-	buf.erase(promptPos + 1);
-	this->prompt = buf;
 
-	// main loop
+	this->size = { short(screenBufInfo.srWindow.Right - screenBufInfo.srWindow.Left + 1), short(screenBufInfo.srWindow.Bottom - screenBufInfo.srWindow.Top + 1) };
+
+
+	// main loop ---- ---- ---- ----
 	this->stop = false;
 	while (!this->stop) {
 		auto [inputs, err] = this->Read();
 		if (err) {
-			return err;
+			return { std::nullopt, err };
 		}
-		else {
-			this->ProcessInputs(inputs);
-		}
-
+		this->controller->Input(inputs);
 
 		this->Render();
-		Sleep(100);
+		Sleep(10);
 	}
+	// loop end ---- ---- ---- ----
 	// stop
 	::SetConsoleActiveScreenBuffer(this->stdOutHandle);
-	return std::nullopt;
+
+	// restore title
+	::SetConsoleTitleA(title.c_str());
+	return { this->result, std::nullopt };
 }
 
 
@@ -97,8 +122,8 @@ void SearchView::Stop()
 std::tuple<std::vector<INPUT_RECORD>, std::optional<Error>> SearchView::Read()
 {
 	// close if size change
-	// escape
-	// mouse input? etc...
+	//          escape
+	//          mouse input? etc...
 	// read input
 	// managre buffer, cursor, bs, delete, etc...
 	// history finder set 
@@ -111,7 +136,7 @@ std::tuple<std::vector<INPUT_RECORD>, std::optional<Error>> SearchView::Read()
 	if (!count) {
 		return { {}, std::nullopt };
 	}
-	std::vector<INPUT_RECORD> inputs(4);
+	std::vector<INPUT_RECORD> inputs(count);
 	DWORD len = DWORD(inputs.size());
 	DWORD numOfEvents = 0;
 
@@ -124,78 +149,64 @@ std::tuple<std::vector<INPUT_RECORD>, std::optional<Error>> SearchView::Read()
 
 std::optional<Error> SearchView::Render()
 {
-	HANDLE back = this->screenBuffers[this->screenIndex ^ 1];
-
-	CONSOLE_SCREEN_BUFFER_INFO screenBufInfo{};
-	if (!::GetConsoleScreenBufferInfo(this->stdOutHandle, &screenBufInfo)) {
-		auto err = ::GetLastError();
-		return Error(err, "Failed to ::GetConsoleScreenBufferInfo");
+	// check models updated
+	if (!this->prompt->NeedUpdate() && !this->historian->NeedUpdate()) {
+		return std::nullopt;
 	}
-
-	COORD screenSize = { short(screenBufInfo.srWindow.Right - screenBufInfo.srWindow.Left + 1), short(screenBufInfo.srWindow.Bottom - screenBufInfo.srWindow.Top + 1) };
-
-	std::vector<std::string> lines{ (uint64_t)screenSize.Y, "" };
-	lines[0] = this->prompt;
-	lines[1] = "Hello";
-	lines[2] = "World";
-	lines[lines.size() - 1] = this->inputting;
-
-	//std::vector<std::vector<CHAR_INFO>> buffer(screenSize.Y, std::vector<CHAR_INFO>(screenSize.X));
-	//for (int y = 0; y < screenSize.Y; y++) {
-	//	for (int x = 0; x < lines[y].size() || x < screenBufInfo.dwSize.X; x++) {
-	//		if (x < lines[y].size()) {
-	//			buffer[y][x].Char.AsciiChar = lines[y][x];
-	//		}
-	//		else {
-	//			buffer[y][x].Char.AsciiChar = ' ';
-	//		}
-	//		buffer[y][x].Attributes = FOREGROUND_GREEN | FOREGROUND_BLUE;
-	//	}
-	//}
-
-	//SMALL_RECT writeArea = { 0, 0, screenSize.X - 1, screenSize.Y - 1 };
-	//auto r = ::WriteConsoleOutputA(back, buffer[0].data(), screenSize, { 0, 0 }, &writeArea);
-
-	std::vector<CHAR_INFO> buffer( uint64_t(screenSize.Y) * (uint64_t)screenSize.X, CHAR_INFO{} );
-	for (int y = 0; y < screenSize.Y; y++) {
-		for (int x = 0; x < lines[y].size() || x < screenSize.X; x++) {
-			if (x < lines[y].size()) {
-				buffer[((int64_t)y*screenSize.X) + x].Char.AsciiChar = lines[y][x];
-			}
-			else {
-				buffer[((int64_t)y*screenSize.X) + x].Char.AsciiChar = ' ';
-			}
-			buffer[((int64_t)y * screenSize.X) + x].Attributes = FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_RED;
-		}
-	}
-
-	SMALL_RECT writeArea = { 0, 0, screenSize.X - 1, screenSize.Y - 1 };
-	auto r = ::WriteConsoleOutputA(back, buffer.data(), screenSize, { 0, 0 }, &writeArea);
-
-
+	this->prompt->ResetUpdateStatus();
+	this->historian->ResetUpdateStatus();
 
 	
+	// --------------------------------------
+	//   5th item
+	//   4th item
+	//   3rd item
+	//   2nd item
+	// > 1st item
+	// > Prompt here
+	// --------------------------------------
 
-	// reset cursor position
-	//::SetConsoleCursorPosition(back, { 0, 0 });
-	//::WriteConsoleA(back, content.data(), content.size(), &written, nullptr);
-	//::SetConsoleCursorPosition(back, this->cursorPos);
-	::SetConsoleCursorPosition(back, { 0, screenSize.Y - (SHORT)1 });
-	::SetConsoleActiveScreenBuffer(back);
-	this->screenIndex ^= 1;
-	return std::nullopt;
-}
+	std::vector<std::string> lines{ uint64_t(this->size.Y), "" };
+	// --PROMPT--
+	lines[lines.size() - 1] = this->prompt->Get();
+	size_t last = lines.size() - 1 - 1;
 
-
-void SearchView::ProcessInputs(const std::vector<INPUT_RECORD> inputs)
-{
-	for (auto& each : inputs) {
-		if (each.EventType == KEY_EVENT) {
-			if (each.Event.KeyEvent.bKeyDown) {
-				this->inputting += each.Event.KeyEvent.uChar.AsciiChar;
+	size_t lineIndex = 0;
+	for (int i = this->historian->Top(); i <= this->historian->Bottom(); i++) {
+		auto r = this->historian->At(i);
+		if (r) {
+			if (r->selected) {
+				// https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences
+				lines[last - lineIndex++] += std::format("\x1b[1m\x1b[31m>\x1b[0m \x1b[1m{}\x1b[0m", r->data);
+			}
+			else {
+				lines[last - lineIndex++] += "  " + r->data;
 			}
 		}
+
 	}
+
+
+	// rendering
+	HANDLE back = this->screenBuffers[this->screenIndex ^ 1];
+	// clear buffer as ' '
+	DWORD written = 0;
+	::FillConsoleOutputCharacterA(back, ' ', this->windowSize.X * this->windowSize.Y, { 0, 0 }, &written);
+
+	::SetConsoleCursorPosition(back, { 0, 0 }); // WriteConsole starts to output from cursor pos
+	SHORT y = 0;
+	for (auto& line : lines) {
+		DWORD written = 0;
+		auto r = ::WriteConsoleA(back, line.data(), line.size(), &written, nullptr);
+		::SetConsoleCursorPosition(back, { 0, ++y });
+	}
+	::SetConsoleCursorPosition(back, { this->prompt->GetCursor(), SHORT(this->size.Y - 1) });
+
+	// change console buffer
+	::SetConsoleActiveScreenBuffer(back);
+	this->screenIndex ^= 1;
+
+	return std::nullopt;
 }
 
 

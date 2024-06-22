@@ -3,6 +3,7 @@
 #include <string>
 #include <optional>
 #include <list>
+#include <vector>
 #include "error.h"
 
 constexpr uint32_t DataLength = 1024;
@@ -18,6 +19,7 @@ public:
 	std::optional<std::string> Prev();
 	std::optional<std::string> Next();
 	void Reset();
+	std::vector<std::string> GetAll();
 private:
 	std::list<std::string> data;
 	std::list<std::string>::iterator current;

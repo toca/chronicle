@@ -42,6 +42,7 @@ void History::Add(const std::string& line)
 	this->Reset();
 }
 
+
 std::optional<std::string> History::Prev()
 {
 	if (this->data.empty()) {
@@ -52,6 +53,7 @@ std::optional<std::string> History::Prev()
 	}
 	return *current;
 }
+
 
 std::optional<std::string> History::Next()
 {
@@ -73,4 +75,10 @@ std::optional<std::string> History::Next()
 
 void History::Reset() {
 	this->current = this->data.end();
+}
+
+
+std::vector<std::string> History::GetAll()
+{
+	return std::vector<std::string>(this->data.begin(), this->data.end());
 }

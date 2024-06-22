@@ -31,7 +31,10 @@ std::optional<Error> KeyHooker::Start()
     windowClass.hInstance = instance;
     windowClass.lpszClassName = WindowClassName;
     if (!::RegisterClassA(&windowClass)) {
-        return Error(::GetLastError(), "Failed to RegisterClass");
+        auto err = ::GetLastError();
+        if (err != ERROR_CLASS_ALREADY_EXISTS) {
+            return Error(::GetLastError(), "Failed to RegisterClass");
+        }
     }
 
     window = ::CreateWindowExA(

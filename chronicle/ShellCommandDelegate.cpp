@@ -27,8 +27,8 @@ Result<ShellCommandDelegate*> ShellCommandDelegate::Create()
     startupInfo.cb = sizeof(startupInfo);
 
     startupInfo.dwFlags |= STARTF_USESTDHANDLES;
-    startupInfo.hStdError = GetStdHandle(STD_ERROR_HANDLE);
-    startupInfo.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+    startupInfo.hStdError = ::GetStdHandle(STD_ERROR_HANDLE);
+    startupInfo.hStdOutput = ::GetStdHandle(STD_OUTPUT_HANDLE);
     startupInfo.hStdInput = self->stdinRead;
 
     //startupInfo.dwFlags |= STARTF_USESHOWWINDOW;
