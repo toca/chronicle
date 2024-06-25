@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "CppUnitTest.h"
 
+#include <iostream>
 #include <optional>
 #include <string>
 #include "History.h"
@@ -13,66 +14,114 @@ namespace chronicletest
 	{
 	public:
 		
-		TEST_METHOD(IfEmptyPrevReturnsNoValue)
+		TEST_METHOD(IfEmptyOlderReturnsNoValue)
 		{
 			History h;
-			Assert::IsFalse(h.Prev().has_value());
+			Assert::IsFalse(h.Older().has_value());
 		}
-		TEST_METHOD(IfEmptyNextReturnsNoValue)
+		TEST_METHOD(IfEmptyNewerReturnsNoValue)
 		{
 			History h;
-			Assert::IsFalse(h.Next().has_value());
+			Assert::IsFalse(h.Newer().has_value());
 		}
-		TEST_METHOD(Prev)
-		{
-			History h;
-			std::string val = "dummy-value";
-			h.Add(val);
-			Assert::AreEqual(*h.Prev(), val);
-		}
-		TEST_METHOD(PrevPrevNoValue)
+		TEST_METHOD(Older)
 		{
 			History h;
 			std::string val = "dummy-value";
 			h.Add(val);
-			Assert::AreEqual(val, *h.Prev());
-			Assert::AreEqual(val, *h.Prev());
+			Assert::AreEqual(*h.Older(), val);
 		}
-		TEST_METHOD(PrevPrevValue)
+		TEST_METHOD(OlderOlderNoValue)
+		{
+			History h;
+			std::string val = "dummy-value";
+			h.Add(val);
+			Assert::AreEqual(val, *h.Older());
+			Assert::IsFalse(h.Older().has_value());
+		}
+		TEST_METHOD(OlderOlderValue)
 		{
 			History h;
 			std::string val1 = "dummy-value1";
 			std::string val2 = "dummy-value2";
 			h.Add(val1);
 			h.Add(val2);
-			Assert::AreEqual(val2, *h.Prev());
-			Assert::AreEqual(val1, *h.Prev());
+			Assert::AreEqual(val2, *h.Older());
+			Assert::AreEqual(val1, *h.Older());
 		}
 
-		TEST_METHOD(Next)
+		TEST_METHOD(Newer)
 		{
 			History h;
 			h.Add("dummy-val");
-			Assert::IsFalse(h.Next().has_value());
+			Assert::IsFalse(h.Newer().has_value());
 		}
-		TEST_METHOD(PrevNextNoValue)
+		TEST_METHOD(OlderNewerNoValue)
 		{
 			History h;
 			std::string val = "dummy-val";
 			h.Add(val);
-			Assert::AreEqual(val, *h.Prev());
-			Assert::AreEqual(val, *h.Next());
+			Assert::AreEqual(val, *h.Older());
+			Assert::IsFalse(h.Newer().has_value());
 		}
-		TEST_METHOD(PrevNextValue)
+		TEST_METHOD(OlderNewerValue)
 		{
 			History h;
 			std::string val1 = "dummy-val1";
 			std::string val2 = "dummy-val2";
 			h.Add(val1);
 			h.Add(val2);
-			Assert::AreEqual(val2, *h.Prev());
-			Assert::AreEqual(val1, *h.Prev());
-			Assert::AreEqual(val2, *h.Next());
+			Assert::AreEqual(val2, *h.Older());
+			Assert::AreEqual(val1, *h.Older());
+			Assert::AreEqual(val2, *h.Newer());
+		}
+
+		TEST_METHOD(Uniqueness)
+		{
+			History h;
+			std::string val1 = "dummy-val1";
+			std::string val2 = "dummy-val2";
+			std::string val3 = "dummy-val1";
+			h.Add(val1);
+			h.Add(val2);
+			h.Add(val3);
+
+			Assert::AreEqual(val1, *h.Older());
+			Assert::AreEqual(val2, *h.Older());
+			Assert::IsFalse(h.Older().has_value());
+		}
+
+
+		TEST_METHOD(Load_items)
+		{
+			History h;
+			std::stringstream ss("dum-val1\ndum-val2\n");
+			h.Load(ss);
+			Assert::AreEqual(std::string("dum-val1"), *h.Older());
+			Assert::AreEqual(std::string("dum-val2"), *h.Older());
+		}
+
+		TEST_METHOD(Load_and_Add) 
+		{
+			History h;
+			std::stringstream ss("dum-val1\ndum-val2\n");
+			h.Load(ss);
+			h.Add("dum-val3");
+			//Assert::IsTrue(h.Older()->compare("dum-val3"));
+			Assert::AreEqual(std::string("dum-val3"), *h.Older());
+			Assert::AreEqual(std::string("dum-val1"), *h.Older());
+			Assert::AreEqual(std::string("dum-val2"), *h.Older());
+		}
+
+		TEST_METHOD(Dump_items)
+		{
+			History h;
+			h.Add("dum-val1");
+			h.Add("dum-val2");
+			h.Add("dum-val3");
+			std::stringstream ss;
+			h.Dump(ss);
+			Assert::IsTrue(ss.str() == "dum-val3\ndum-val2\ndum-val1\n");
 		}
 
 	};

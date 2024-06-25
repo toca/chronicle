@@ -159,11 +159,15 @@
     <ClInclude Include="history.h" />
     <ClInclude Include="keyhooker.h" />
     <ClInclude Include="prompt.h" />
+    <ClInclude Include="resource.h" />
     <ClInclude Include="result.h" />
     <ClInclude Include="searchcontroller.h" />
     <ClInclude Include="searchview.h" />
     <ClInclude Include="shellcommanddelegate.h" />
     <ClInclude Include="taskqueue.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="chronicle.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

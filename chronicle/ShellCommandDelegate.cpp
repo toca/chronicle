@@ -44,8 +44,8 @@ Result<ShellCommandDelegate*> ShellCommandDelegate::Create()
         nullptr,
         TRUE,
         //CREATE_NEW_CONSOLE,
-        0, // 0 だと既存のコンソールの中で実行される CTRL-Cは親に来る見たい
         //CREATE_NEW_PROCESS_GROUP,
+        0, // if 0 Ctrl + C send to each process
         nullptr,
         nullptr,
         &startupInfo,
@@ -69,9 +69,6 @@ std::optional<Error> ShellCommandDelegate::Input(const std::string& line)
     if (!line.size()) {
         return std::nullopt;
     }
-    //::OutputDebugStringA("Input>>");
-    //::OutputDebugStringA(line.c_str());
-    //::OutputDebugStringA("\n");
     DWORD written = 0;
     if (!::WriteFile(this->stdinWrite, line.data(), line.size(), &written, nullptr)) {
         return Error(::GetLastError(), "Failed to WriteFile");
@@ -83,7 +80,6 @@ std::optional<Error> ShellCommandDelegate::Input(const std::string& line)
 
 void ShellCommandDelegate::Exit()
 {
-    // TODO if processing send ctrl-c?
     this->Input("exit\r\n");
 }
 
@@ -101,6 +97,7 @@ void ShellCommandDelegate::Wait()
 {
     ::WaitForSingleObject(this->processInfo.hProcess, INFINITE);
 }
+
 
 ShellCommandDelegate::ShellCommandDelegate()
 {

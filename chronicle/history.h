@@ -13,11 +13,11 @@ class History
 public:
 	History();
 	~History();
-	std::optional<Error> Load(std::ifstream& stream);
-	std::optional<Error> Dump(std::ofstream& stream);
+	std::optional<Error> Load(std::istream& stream);
+	std::optional<Error> Dump(std::ostream& stream);
 	void Add(const std::string& line);
-	std::optional<std::string> Prev();
-	std::optional<std::string> Next();
+	std::optional<std::string> Older();
+	std::optional<std::string> Newer();
 	void Reset();
 	std::vector<std::string> GetAll();
 private:

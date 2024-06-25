@@ -7,6 +7,7 @@
 #include <iostream>
 #include <thread>
 #include <fstream>
+#include <array>
 
 #include <tuple>
 #include "shellcommanddelegate.h"
@@ -40,25 +41,17 @@ HANDLE OpenConsoleIn();
 std::optional<Error> Clear();
 std::optional<Error> Send(const std::string& message);
 
+bool Redirectable(const std::string& command);
+void ShowPrompt();
+
 
 Result<std::ifstream> OpenHistoryFile();
 Result<std::ofstream> GetHistoryFile();
 
-// TODO pause, timeout ... use system()
 
-// M A I N
+// M A I N ////////////////
 int main()
 {
-    // TODO
-    // search histories
-    // Send CTRL-C to child process
-    // どうやって 子 cmd を終了するか exitじゃあだめ
-
-    // SearchMode
-    // なるほど。fish 検索中は選択とか出来ない
-    // 現在の情報を取ってサイズを取得して
-    // stop, search とか  enum でもいいか?
-
     try {
         // locale
         setlocale(LC_ALL, "");
@@ -162,15 +155,15 @@ int main()
         // search view
         searchView.reset(new SearchView());
 
-        // こっちの CTRL-C をどうやって子cmdへ送るのか?
+        // Handle CTRL + C
         ::SetConsoleCtrlHandler([](DWORD event) -> BOOL {
             if (event == CTRL_C_EVENT)
             {
-                // TODO confirm?
+                if (stop) return FALSE;
                 stop = true;
                 cmd->Exit();
                 searchView->Stop();
-                printf("\nBreak.\n");
+                printf("\nCtrl+C\n");
                 ::CancelIoEx(consoleIn, &overLapped);
                 return TRUE;
             }
@@ -228,14 +221,21 @@ int main()
                 continue;
             }
 
+            // process command
             std::string line;
             auto pos = buf.find('\r');
             if (pos != std::string::npos) {
                 line.assign(buf.begin(), buf.begin() + pos);
             }
+            if (Redirectable(line)) {
+                cmd->Input(line + '\n');
+            }
+            else {
+                system(line.c_str());
+                ShowPrompt();
+            }
             if (line.size()) {
                 history->Add(line);
-                cmd->Input(line + '\n');
             }
         }
         //////////////////////////////////////
@@ -261,7 +261,7 @@ int main()
 
 void Prev()
 {
-    auto s = history->Prev();
+    auto s = history->Older();
     if (s) {
         ::OutputDebugStringA(std::format("{}\n", *s).c_str());
         Clear();
@@ -272,7 +272,7 @@ void Prev()
 
 void Next() 
 {
-    auto s = history->Next();
+    auto s = history->Newer();
 
     if (s) {
         ::OutputDebugStringA(std::format("{}\n", *s).c_str());
@@ -282,54 +282,60 @@ void Next()
 }
 
 
-bool AmIActive() 
+bool AmIActive()
 {
-    HWND consoleWindow = ::GetConsoleWindow();
-    HWND foregroundWindow = ::GetForegroundWindow();
-    return consoleWindow == foregroundWindow;
+    std::string consoleTitle(256, '\0');
+    ::GetConsoleTitleA(consoleTitle.data(), consoleTitle.size());
+    //::OutputDebugStringA(consoleTitle.c_str());
+    std::string foregroundTitle(256, '\0');
+    ::GetWindowTextA(::GetForegroundWindow(), foregroundTitle.data(), foregroundTitle.size());
+    //::OutputDebugStringA(foregroundTitle.c_str());
+
+    return consoleTitle == foregroundTitle;
+
+    //This code does not work on Windows Terminal
+    //HWND consoleWindow = ::GetConsoleWindow();
+    //HWND foregroundWindow = ::GetForegroundWindow();
+    //if (consoleWindow == foregroundWindow) {
+    //    ::OutputDebugStringA("Active\n");
+    //}
+    //else {
+    //    ::OutputDebugStringA("Inactive\n");
+    //}
+    //return consoleWindow == foregroundWindow;
 }
 
 
 std::optional<Error> Clear() 
 {
-    INPUT input;
-    input.type = INPUT_KEYBOARD;
-    input.ki.wScan = 0;
-    input.ki.time = 0;
-    input.ki.dwExtraInfo = 0;
-    input.ki.wVk = VK_ESCAPE;
-    input.ki.dwFlags = 0;
-    SendInput(1, &input, sizeof(INPUT));
-    input.ki.dwFlags = KEYEVENTF_KEYUP;
-    SendInput(1, &input, sizeof(INPUT));
-    Sleep(1); // DO NOT RMOVE THIS!
 
-    //printf("\x1b[0K");
-    //printf("\x1b[2K"); // 行をクリア
-    //printf("\x1b[0G"); // カーソルを行の先頭に移動
+    INPUT_RECORD records[2] = {};
+    // Write Console 'ESC'
 
-    //printf("\x1b\x1b");
-    //printf("\x1b[31mHello\x1b[0m \x1b[32mworld\x1b[0m\n");
-    //printf("\x1b[C");
+    records[0].EventType = KEY_EVENT;
+    records[0].Event.KeyEvent = {};
+    records[0].Event.KeyEvent.bKeyDown = TRUE;
+    records[0].Event.KeyEvent.dwControlKeyState = 0;
+    records[0].Event.KeyEvent.uChar.UnicodeChar = L'\0';
+    records[0].Event.KeyEvent.wRepeatCount = 1;
+    records[0].Event.KeyEvent.wVirtualKeyCode = VK_ESCAPE;
+    records[0].Event.KeyEvent.wVirtualScanCode = 0;
 
+    records[1].EventType = KEY_EVENT;
+    records[1].Event.KeyEvent = {};
+    records[1].Event.KeyEvent.bKeyDown = FALSE;
+    records[1].Event.KeyEvent.dwControlKeyState = 0;
+    records[1].Event.KeyEvent.uChar.UnicodeChar = L'\0';
+    records[1].Event.KeyEvent.wRepeatCount = 1;
+    records[1].Event.KeyEvent.wVirtualKeyCode = VK_ESCAPE;
+    records[1].Event.KeyEvent.wVirtualScanCode = 0;
 
+    
+    DWORD written = 0;
+    if (!::WriteConsoleInputA(stdinHandle, records, 2, &written)) {
+        return Error(::GetLastError(), "Failed to WriteConsoleIput");
+    }
 
-    //if (!FlushConsoleInputBuffer(stdinHandle)) {
-    //    return Error(::GetLastError(), "Failed to FlushConsoleInputBuffer");
-    //}
-    //return std::nullopt;
-    //DWORD count = 0;
-    //::GetNumberOfConsoleInputEvents(stdinHandle, &count);
-    //if (count == 0) {
-    //    OutputDebugStringA("clear on empty\n");
-    //    return std::nullopt;
-    //}
-
-    //std::vector<BYTE> buf(1024);
-    //DWORD read = 0;
-    //if (!::ReadConsoleA(stdinHandle, buf.data(), buf.size(), &read, nullptr)) {
-    //    return Error(::GetLastError(), "Failed to ReadConsole");
-    //}
     return std::nullopt;
 }
 
@@ -397,4 +403,33 @@ Result<std::ofstream> GetHistoryFile()
 HANDLE OpenConsoleIn() 
 {
     return ::CreateFileA("CONIN$", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr);
+}
+
+
+std::array<std::string, 2> NonRedirectableCommands{ "pause", "timeout" };
+bool Redirectable(const std::string& command)
+{
+    bool quote = false;
+    std::string verb;
+    for (size_t i = 0; i < command.size(); i++) {
+        if (command[i] == '\\') i++;
+        if (command[i] == '\"') quote = !quote;
+        if (command[i] == ' ' && !quote) break;
+        verb += command[i];
+    }
+    for (auto& each : NonRedirectableCommands) {
+        if (_stricmp(verb.c_str(), each.c_str()) == 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+
+void ShowPrompt()
+{
+    size_t size = ::GetCurrentDirectoryA(0, nullptr);
+    std::string buf(size + 1, ' ');
+    ::GetCurrentDirectoryA(buf.size(), buf.data());
+    printf("%s>", buf.c_str());
 }
