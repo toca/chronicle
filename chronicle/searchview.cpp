@@ -7,7 +7,10 @@
 #include <format>
 
 
-SearchView::SearchView() {}
+SearchView::SearchView() 
+	: screenBuffers{ INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE }
+	, size({0, 0})
+{}
 
 
 std::optional<Error> SearchView::Init(const std::vector<std::string>& histories)

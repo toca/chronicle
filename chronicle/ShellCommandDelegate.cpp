@@ -54,6 +54,7 @@ Result<ShellCommandDelegate*> ShellCommandDelegate::Create()
     if (!res) {
         return { std::nullopt, Error(::GetLastError(), "Failed to ::CreateProcess")};
     }
+   
     //SetConsoleOutputCP(CP_UTF8);
     //DWORD consoleMode;
     //consoleMode |= ENABLE_PROCESSED_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING;

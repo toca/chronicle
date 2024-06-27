@@ -38,11 +38,14 @@ void Prev();
 void Next();
 bool AmIActive();
 HANDLE OpenConsoleIn();
-std::optional<Error> Clear();
-std::optional<Error> Send(const std::string& message);
+OptionalError Clear();
+OptionalError Send(const std::string& message);
 
 bool Redirectable(const std::string& command);
 void ShowPrompt();
+COORD PromptPosition();
+Result<std::string> ReadUncommitedInputs(COORD from);
+void WaitOutputDone();
 
 
 Result<std::ifstream> OpenHistoryFile();
@@ -52,6 +55,9 @@ Result<std::ofstream> GetHistoryFile();
 // M A I N ////////////////
 int main()
 {
+    // TODO
+    //   * transfer uncommited input to searh mode
+    //   * remove uncommited input when going to search mode (memorize cursor pos before input)
     try {
         // locale
         setlocale(LC_ALL, "");
@@ -126,7 +132,7 @@ int main()
                     Next();
                 });
                 return true;
-            case 'R':
+            case 'R': // search mode
                 if (::GetAsyncKeyState(VK_CONTROL) & 0x8000) {
                     queue->enqueue([&]() {
                         OutputDebugStringA("SearchMode!!\n");
@@ -157,6 +163,7 @@ int main()
 
         // Handle CTRL + C
         ::SetConsoleCtrlHandler([](DWORD event) -> BOOL {
+            //::OutputDebugStringA(std::format("e: %d", event).c_str());
             if (event == CTRL_C_EVENT)
             {
                 if (stop) return FALSE;
@@ -167,10 +174,15 @@ int main()
                 ::CancelIoEx(consoleIn, &overLapped);
                 return TRUE;
             }
+            else if (event == CTRL_CLOSE_EVENT) {
+                printf("close");
+            }
             return FALSE;
             }, TRUE
         );
 
+        // wait for cmd's output done
+        WaitOutputDone();
 
         // reading input loop ////////////////
         // TODO test when over length
@@ -178,8 +190,10 @@ int main()
         while (!stop) {
             DWORD read = 0;
             buf.assign(buf.size(), '\0');
-            // read input here
-            // TODO func
+
+            auto promptPos = PromptPosition();
+
+            // read input here -------------------------------------------------------
             if (!::ReadFile(consoleIn, buf.data(), buf.size(), &read, &overLapped)) {
                 auto err = GetLastError();
                 if (err != ERROR_IO_PENDING) {
@@ -201,6 +215,14 @@ int main()
 
             // search mode ----
             if (searching) {
+                // read uncommited buffer and remove it
+                auto[ uncommitedInputs, readErr ] = ReadUncommitedInputs(promptPos);
+                if (readErr) {
+                    fprintf(stderr, "%s %d", readErr->message.c_str(), readErr->code);
+                    return readErr->code;
+                }
+                Clear();
+
                 ::CloseHandle(consoleIn);
                 auto [ result, err] = searchView->Show(history->GetAll());
                 if (err) {
@@ -237,6 +259,7 @@ int main()
             if (line.size()) {
                 history->Add(line);
             }
+            WaitOutputDone();
         }
         //////////////////////////////////////
 
@@ -306,7 +329,7 @@ bool AmIActive()
 }
 
 
-std::optional<Error> Clear() 
+OptionalError Clear() 
 {
 
     INPUT_RECORD records[2] = {};
@@ -340,7 +363,7 @@ std::optional<Error> Clear()
 }
 
 
-std::optional<Error> Send(const std::string& message)
+OptionalError Send(const std::string& message)
 {
     std::wstring wideMessage(message.size(), L'\0');
     if (0 == ::MultiByteToWideChar(CP_ACP, MB_COMPOSITE, message.data(), message.size(), wideMessage.data(), wideMessage.size())) {
@@ -432,4 +455,52 @@ void ShowPrompt()
     std::string buf(size + 1, ' ');
     ::GetCurrentDirectoryA(buf.size(), buf.data());
     printf("%s>", buf.c_str());
+}
+
+
+COORD PromptPosition()
+{
+    CONSOLE_SCREEN_BUFFER_INFO info;
+    if (!::GetConsoleScreenBufferInfo(::GetStdHandle(STD_OUTPUT_HANDLE), &info)) {
+        auto err = ::GetLastError();
+        fprintf(stderr, "Failed to ::GetConsoleScreenBuffer: %d\n", err);
+        return { 0, 0 };
+    }
+    return info.dwCursorPosition;
+}
+
+
+Result<std::string> ReadUncommitedInputs(COORD from)
+{
+    HANDLE handle = ::GetStdHandle(STD_OUTPUT_HANDLE);
+    CONSOLE_SCREEN_BUFFER_INFO info;
+    if (!::GetConsoleScreenBufferInfo(handle, &info)) {
+        auto err = ::GetLastError();
+        return { std::nullopt, Error(err, "Failed to ::GetConsoleScreenBuffer") };
+    }
+    auto dx = info.dwCursorPosition.X - from.X;
+    auto dy = info.dwCursorPosition.Y - from.Y;
+    auto windowWidth = info.srWindow.Right - info.srWindow.Left + 1;
+    size_t lengthToRead = dx + dy * windowWidth;
+    std::string buf(lengthToRead, '\0');
+    DWORD read = 0;
+    if (!::ReadConsoleOutputCharacterA(handle, buf.data(), buf.size(), from, &read)) {
+        auto err = ::GetLastError();
+        return { std::nullopt, Error(err, "Failed to ::ReadConsoleOutputCharacterA") };
+    }
+    return { buf, std::nullopt };
+}
+
+
+void WaitOutputDone()
+{
+    COORD last{ 0, 0 };
+    for (int i = 0; i < 10; i++){
+        COORD current = PromptPosition();
+        if (last.X == current.X && last.Y == current.Y)
+        {
+            break;
+        }
+        Sleep(25);
+    }
 }

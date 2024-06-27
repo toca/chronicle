@@ -10,11 +10,12 @@ class ShellCommandDelegate
 public:
 	static Result<ShellCommandDelegate*> Create();
 	~ShellCommandDelegate();
-	std::optional<Error> Input(const std::string& line);
+	OptionalError Input(const std::string& line);
 	void Exit();
 	void OnExit(std::function<void()> callback);
 	void Break();
 	void Wait();
+	
 private:
 	ShellCommandDelegate();
 	void StartWaitingForExit();
