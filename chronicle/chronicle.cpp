@@ -19,7 +19,7 @@
 #include "defer.h"
 
 
-std::unique_ptr<ShellCommandDelegate> cmd;
+//std::unique_ptr<ShellCommandDelegate> cmd;
 std::unique_ptr<KeyHooker> hooker;
 std::unique_ptr<History> history;
 std::unique_ptr<TaskQueue<std::function<void()>>> queue;
@@ -51,16 +51,40 @@ void WaitOutputDone();
 Result<std::ifstream> OpenHistoryFile();
 Result<std::ofstream> GetHistoryFile();
 
+// renew architecture
+#include "view.h"
+#include "controller.h"
+#include "inputbuffer.h"
+#include "promptgate.h"
+
+std::shared_ptr<View> view;
+Result<std::vector<INPUT_RECORD>> Read();
+
 
 // M A I N ////////////////
 int main()
 {
     // TODO
-    //   * transfer uncommited input to searh mode
-    //   * remove uncommited input when going to search mode (memorize cursor pos before input)
+    //   * echo foo するとその直後にexecuteしてしまうので改行が出力されない
+    // 
     try {
         // locale
         setlocale(LC_ALL, "");
+
+        // new achitecture!!!!
+        auto inputBuffer = std::make_shared<InputBuffer>();
+        auto promptGate = std::make_shared<PromptGate>();
+        auto controller = std::make_shared<Controller>(inputBuffer, promptGate);
+        auto [viewOpt, viewErr] = View::Create(inputBuffer, promptGate);
+        if (viewErr) {
+            return viewErr->code;
+        }
+        view.reset(*viewOpt);
+
+
+
+
+
         
         // history
         history.reset(new History());
@@ -90,20 +114,20 @@ int main()
 
 
         // CMD
-        auto [value, error] = ShellCommandDelegate::Create();
-        if (error) {
-            printf("%s %d\n", error->message.c_str(), error->code);
-            return error->code;
-        }
-        cmd.reset(*value);
-        // on internal cmd.exe exited
-        cmd->OnExit([]()
-            {
-                stop = true;
-                ::CancelIoEx(consoleIn, &overLapped);
-            }
-        );
-        DEFER([]() { cmd->Wait(); });
+        //auto [value, error] = ShellCommandDelegate::Create();
+        //if (error) {
+        //    printf("%s %d\n", error->message.c_str(), error->code);
+        //    return error->code;
+        //}
+        //cmd.reset(*value);
+        //// on internal cmd.exe exited
+        //cmd->OnExit([]()
+        //    {
+        //        stop = true;
+        //        ::CancelIoEx(consoleIn, &overLapped);
+        //    }
+        //);
+        //DEFER([]() { cmd->Wait(); });
 
 
         // queue
@@ -166,9 +190,8 @@ int main()
             //::OutputDebugStringA(std::format("e: %d", event).c_str());
             if (event == CTRL_C_EVENT)
             {
-                if (stop) return FALSE;
                 stop = true;
-                cmd->Exit();
+                //cmd->Exit();
                 searchView->Stop();
                 printf("\nCtrl+C\n");
                 ::CancelIoEx(consoleIn, &overLapped);
@@ -184,10 +207,34 @@ int main()
         // wait for cmd's output done
         WaitOutputDone();
 
+
         // reading input loop ////////////////
         // TODO test when over length
         std::string buf(4096, '\0');
         while (!stop) {
+            // read input
+            auto [inputs, readErr] = Read();
+            if (readErr) {
+                fprintf(stderr, "%s : %d\n", readErr->message.c_str(), readErr->code);
+                return readErr->code;
+            }
+            // pass inputs
+            controller->Input(*inputs);
+            // rendering
+            //view->Render();
+
+            Sleep(25);
+            continue;
+
+
+
+
+
+
+
+
+
+
             DWORD read = 0;
             buf.assign(buf.size(), '\0');
 
@@ -249,9 +296,9 @@ int main()
             if (pos != std::string::npos) {
                 line.assign(buf.begin(), buf.begin() + pos);
             }
-            if (Redirectable(line)) {
-                cmd->Input(line + '\n');
-            }
+            //if (Redirectable(line)) {
+            //    cmd->Input(line + '\n');
+            //}
             else {
                 system(line.c_str());
                 ShowPrompt();
@@ -432,6 +479,7 @@ HANDLE OpenConsoleIn()
 std::array<std::string, 2> NonRedirectableCommands{ "pause", "timeout" };
 bool Redirectable(const std::string& command)
 {
+    return false;
     bool quote = false;
     std::string verb;
     for (size_t i = 0; i < command.size(); i++) {
@@ -503,4 +551,25 @@ void WaitOutputDone()
         }
         Sleep(25);
     }
+}
+
+
+// new architecture
+Result<std::vector<INPUT_RECORD>> Read()
+{
+    DWORD count = 0;
+    if (!::GetNumberOfConsoleInputEvents(stdinHandle, &count)) {
+        return { {}, Error(::GetLastError(), "Failed to ::GetNumberOfConsoleInputEvents") };
+    }
+    if (!count) {
+        return { std::vector<INPUT_RECORD>{}, std::nullopt };
+    }
+    std::vector<INPUT_RECORD> inputs(count);
+    DWORD len = DWORD(inputs.size());
+    DWORD numOfEvents = 0;
+
+    if (!::ReadConsoleInputA(stdinHandle, inputs.data(), len, &numOfEvents)) {
+        return { {}, Error(::GetLastError(), "Failed to ::ReadConsoleInput") };
+    }
+    return { inputs, std::nullopt };
 }
