@@ -21,7 +21,7 @@ OptionalError Controller::Input(const std::vector<INPUT_RECORD>& inputs)
 		case KEY_EVENT:
 			this->inputBuffer->InputKey(each.Event.KeyEvent);
 			if (each.Event.KeyEvent.bKeyDown && each.Event.KeyEvent.wVirtualKeyCode == VK_RETURN) {
-				Command::Execute(inputBuffer->Get());
+				Command::Execute(inputBuffer->GetCommand());
 				this->inputBuffer->ClearInput();
 				this->promptGate->GetReady();
 			}

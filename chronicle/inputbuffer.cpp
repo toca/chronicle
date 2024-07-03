@@ -65,15 +65,31 @@ OptionalError InputBuffer::InputKey(const KEY_EVENT_RECORD& e)
 	return std::nullopt;
 }
 
+
 std::string InputBuffer::Get()
 {
 	return std::string(this->buffer.begin(), this->buffer.end());
 }
 
+
+std::string InputBuffer::GetCommand()
+{
+	std::string s(this->buffer.begin(), this->buffer.end());
+	auto pos = s.find('\r');
+	if (pos == std::string::npos) {
+		return s;
+	}
+	else {
+		return s.substr(0, pos);
+	}
+}
+
+
 SHORT InputBuffer::GetCursor()
 {
 	return this->cursorIndex;
 }
+
 
 void InputBuffer::ClearInput()
 {
@@ -82,10 +98,12 @@ void InputBuffer::ClearInput()
 	this->buffer.clear();
 }
 
+
 void InputBuffer::SetOnChange(std::function<void(InputBuffer*)> cb)
 {
 	this->callback = cb;
 }
+
 
 void InputBuffer::OnChanged()
 {
@@ -93,6 +111,7 @@ void InputBuffer::OnChanged()
 		this->callback(this);
 	}
 }
+
 
 void InputBuffer::Left()
 {

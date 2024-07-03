@@ -13,6 +13,7 @@ public:
 
 	OptionalError InputKey(const KEY_EVENT_RECORD& e);
 	std::string Get();
+	std::string GetCommand();
 	SHORT GetCursor();
 	void ClearInput();
 	void SetOnChange(std::function<void(InputBuffer*)> callback);

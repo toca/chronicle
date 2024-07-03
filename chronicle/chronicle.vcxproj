@@ -145,6 +145,7 @@
   <ItemGroup>
     <ClCompile Include="chronicle.cpp" />
     <ClCompile Include="command.cpp" />
+    <ClCompile Include="consoleutil.cpp" />
     <ClCompile Include="controller.cpp" />
     <ClCompile Include="historian.cpp" />
     <ClCompile Include="history.cpp" />
@@ -159,6 +160,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="command.h" />
+    <ClInclude Include="consoleutil.h" />
     <ClInclude Include="controller.h" />
     <ClInclude Include="defer.h" />
     <ClInclude Include="error.h" />

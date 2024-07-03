@@ -8,6 +8,7 @@
 #include <thread>
 #include <fstream>
 #include <array>
+#include <stdexcept>
 
 #include <tuple>
 #include "shellcommanddelegate.h"
@@ -57,6 +58,9 @@ Result<std::ofstream> GetHistoryFile();
 #include "inputbuffer.h"
 #include "promptgate.h"
 
+/* Global Error Value */
+DWORD ERRORLEVEL = 0;
+
 std::shared_ptr<View> view;
 Result<std::vector<INPUT_RECORD>> Read();
 
@@ -65,8 +69,8 @@ Result<std::vector<INPUT_RECORD>> Read();
 int main()
 {
     // TODO
-    //   * echo foo するとその直後にexecuteしてしまうので改行が出力されない
-    // 
+    // move history to ctrl and view
+    //
     try {
         // locale
         setlocale(LC_ALL, "");
@@ -207,6 +211,7 @@ int main()
         // wait for cmd's output done
         WaitOutputDone();
 
+        view->ShowPrompt();
 
         // reading input loop ////////////////
         // TODO test when over length
@@ -220,8 +225,6 @@ int main()
             }
             // pass inputs
             controller->Input(*inputs);
-            // rendering
-            //view->Render();
 
             Sleep(25);
             continue;
@@ -320,6 +323,9 @@ int main()
 
         printf("Bye.\n");
        
+    }
+    catch (const std::exception& ex) {
+        std::cout << ex.what() << std::endl;
     }
     catch (...) {
         return 1;

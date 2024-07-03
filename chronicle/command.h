@@ -5,5 +5,5 @@
 
 namespace Command 
 {
-	int Execute(const std::string& command);
+	DWORD Execute(const std::string& command);
 }
