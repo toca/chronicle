@@ -27,6 +27,9 @@
     <ClCompile Include="..\chronicle\history.cpp">
       <Filter>targets</Filter>
     </ClCompile>
+    <ClCompile Include="..\chronicle\parse.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">

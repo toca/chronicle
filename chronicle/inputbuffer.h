@@ -14,6 +14,7 @@ public:
 	OptionalError InputKey(const KEY_EVENT_RECORD& e);
 	std::string Get();
 	std::string GetCommand();
+	void Set(const std::string& s);
 	SHORT GetCursor();
 	void ClearInput();
 	void SetOnChange(std::function<void(InputBuffer*)> callback);
@@ -32,5 +33,6 @@ private:
 	void Del();
 	void Home();
 	void End();
+	void Clear();
 };
 

@@ -151,6 +151,7 @@
     <ClCompile Include="history.cpp" />
     <ClCompile Include="inputbuffer.cpp" />
     <ClCompile Include="keyhooker.cpp" />
+    <ClCompile Include="parse.cpp" />
     <ClCompile Include="prompt.cpp" />
     <ClCompile Include="promptgate.cpp" />
     <ClCompile Include="searchcontroller.cpp" />
@@ -168,6 +169,7 @@
     <ClInclude Include="history.h" />
     <ClInclude Include="inputbuffer.h" />
     <ClInclude Include="keyhooker.h" />
+    <ClInclude Include="parse.h" />
     <ClInclude Include="prompt.h" />
     <ClInclude Include="promptgate.h" />
     <ClInclude Include="resource.h" />

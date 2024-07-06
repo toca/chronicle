@@ -7,6 +7,7 @@
 #include <vector>
 #include <cctype>
 
+#include "parse.h"
 #include "error.h"
 #include "result.h"
 
@@ -36,7 +37,7 @@ namespace Command
 		const std::string operation;  // C:Program Files\Foo\bar\pg.exe
 		const std::string parameter;  // -opt1 -opt2
 	};
-	Command Parse(const std::string& input);
+	//Command Parse(const std::string& input);
 	Type ClassifyCommand(const std::string& command);
 	std::string Trim(const std::string& str);
 	bool IsDriveLetter(const std::string& str);
@@ -44,6 +45,7 @@ namespace Command
 	std::string LoadEachDrivePath(const char driveLetter);
 
 	// command
+	DWORD ExecuteCommand(const std::string& command, const std::string& arguments);
 	DWORD Cd(const std::string& param);
 	DWORD Pushd(const std::string& param);
 	DWORD Popd(const std::string& param);
@@ -54,50 +56,147 @@ namespace Command
 
 	std::vector<std::string> directoryStack{};
 
-	DWORD Execute(const std::string& input)
+	OptionalError Execute(const std::string& input)
 	{
+
+		auto [nodes, err] = Parse(input);
+		if (err) {
+			//fprintf(stderr, "The syntax of the command is incorrect.");
+			return Error(err->code, "The syntax of the command is incorrect.");
+		}
+
+		// current process
+		// process list?
+		// current 1
+		// current 2
+		// >, >>, &, &&, ||, | 
+		// 2>&1
+		for (size_t i = 0; i < nodes->size(); i++)
+		{
+			switch (nodes->at(i).type)
+			{
+			case NodeType::End:
+				return std::nullopt;
+			case NodeType::Command:
+				if (nodes->at(i + 1).type == NodeType::Redirect && nodes->at(i + 2).type == NodeType::File) {
+
+				}
+				else {
+					ExecuteCommand(nodes->at(i).command, nodes->at(i).arguments);
+				}
+			}
+
+			/*Type type = ClassifyCommand(nodes->at(i).command);
+			DWORD result = 0;
+			if (type == Type::EXTERNAL) {
+				result = system(input.c_str());
+				::SetEnvironmentVariableA("ERRORLEVEL", std::to_string(result).c_str());
+			}
+
+			switch (type)
+			{
+			case Type::CHANGE_DRIVE:
+				ERRORLEVEL = Cd("/D " + nodes->at(i).command);
+				break;
+			case Type::CD:
+				ERRORLEVEL = Cd(nodes->at(i).arguments);
+				break;
+			case Type::PUSHD:
+				ERRORLEVEL = Pushd(nodes->at(i).arguments);
+				break;
+			case Type::POPD:
+				ERRORLEVEL = Popd(nodes->at(i).arguments);
+				break;
+			case Type::SET:
+				ERRORLEVEL = Set(nodes->at(i).arguments);
+				break;
+			case Type::EXTERNAL:
+				break;
+			default:
+				break;
+			}*/
+		}
+		return std::nullopt;
+
 		// TODO parse input e.g. "echo one & echo two"
 		// &  &&  ||
 		// TODO redirect? > pipe? |
 		// NUL => HANDLE hFile = CreateFile("NUL", GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+		// At first impl pipe |
+		// difference of beween | and > are only handle?
+		// parse: command <parameter> < '|' '>' '<' '>>' '&' '&&' '||' > command ...
 
-		Command command = Parse(input);
-		Type type = ClassifyCommand(command.operation);
-		
+		//Command command = Parse(input);
+		//Type type = ClassifyCommand(command.operation);
+		//
+		//DWORD result = 0;
+		//if (type == Type::EXTERNAL) {
+		//	result = system(input.c_str());
+		//	::SetEnvironmentVariableA("ERRORLEVEL", std::to_string(result).c_str());
+		//}
+		//
+		//switch (ClassifyCommand(command.operation))
+		//{
+		//case Type::CHANGE_DRIVE:
+		//	ERRORLEVEL = Cd("/D " + command.operation);
+		//	break;
+		//case Type::CD:
+		//	ERRORLEVEL = Cd(command.parameter);
+		//	break;
+		//case Type::PUSHD:
+		//	ERRORLEVEL = Pushd(command.parameter);
+		//	break;
+		//case Type::POPD:
+		//	ERRORLEVEL = Popd(command.parameter);
+		//	break;
+		//case Type::SET:
+		//	ERRORLEVEL = Set(command.parameter);
+		//	break;
+		//case Type::EXTERNAL:
+		//	break;
+		//default:
+		//	break;
+		//}
+
+		//puts("");
+		//return result;
+	}
+
+	// command ---- -----
+
+	DWORD ExecuteCommand(const std::string& command, const std::string& arguments)
+	{
+		Type type = ClassifyCommand(command);
 		DWORD result = 0;
 		if (type == Type::EXTERNAL) {
-			result = system(input.c_str());
+			result = system((command + " " + arguments).c_str());
 			::SetEnvironmentVariableA("ERRORLEVEL", std::to_string(result).c_str());
 		}
-		
-		switch (ClassifyCommand(command.operation))
+
+		switch (type)
 		{
 		case Type::CHANGE_DRIVE:
-			ERRORLEVEL = Cd("/D " + command.operation);
+			ERRORLEVEL = Cd("/D " + command);
 			break;
 		case Type::CD:
-			ERRORLEVEL = Cd(command.parameter);
+			ERRORLEVEL = Cd(arguments);
 			break;
 		case Type::PUSHD:
-			ERRORLEVEL = Pushd(command.parameter);
+			ERRORLEVEL = Pushd(arguments);
 			break;
 		case Type::POPD:
-			ERRORLEVEL = Popd(command.parameter);
+			ERRORLEVEL = Popd(arguments);
 			break;
 		case Type::SET:
-			ERRORLEVEL = Set(command.parameter);
+			ERRORLEVEL = Set(arguments);
 			break;
 		case Type::EXTERNAL:
 			break;
 		default:
 			break;
 		}
-
-		puts("");
 		return result;
 	}
-
-	// command ---- -----
 	
 	DWORD Cd(const std::string& param)
 	{
@@ -169,7 +268,36 @@ namespace Command
 
 		// TODO if drive not found when cd D:
 		// TODO Fix first location in the list. It is wrong.
-
+		/*
+		* - Path specified ==============================
+		*                      -cross drive-
+		*        +------------+------------+-----------+
+		*        |            |    True    |   False   |
+		*        +------------+------------+-----------+
+		*  -/D-  |    True    |      1     |     2     |
+		*        +------------+------------+-----------+
+		*        |    False   |      3     |     4     |
+		*        +------------+------------+-----------+
+		* 
+		* - Path not specified ==========================
+		*                      -cross drive- 
+		*        +------------+------------+-----------+
+		*        |            |    True    |   False   |
+		*        +------------+------------+-----------+
+		*  -/D-  |    True    |      5     |     6     |
+		*        +------------+------------+-----------+
+		*        |    False   |      7     |     8     |
+		*        +------------+------------+-----------+
+		* 
+		*  1. Move to other drive and path.
+		*  2. Move to other drive and path.
+		*  3. Do nothing with no error.
+		*  4. Move to the same drive.
+		*  5. Move to other drive. Use saved path.
+		*  6. Move to other drive. Use saved path.
+		*  7. Show saved path.
+		*  8. Show saved path.
+		*/
 		if (path.size()) {
 			// cd Z:\foobar
 			if (otherDrive && !driveOpt) {
@@ -193,7 +321,7 @@ namespace Command
 				return err;
 			}
 
-			// only show currend drive memo
+			// only show currend saved drive
 			std::string dist = LoadEachDrivePath(drive.at(0));
 			printf("%s\n", dist.c_str());
 			return 0;
@@ -286,29 +414,29 @@ namespace Command
 	// internal functions ---- ----
 
 
-	Command Parse(const std::string& input)
-	{
-		bool quote = false;
-		std::string operation;
-		size_t i = 0;
-		for (; i < input.size(); i++) {
-			if (operation.empty() && input[i] == ' ') {
-				continue;
-			}
-			//else if (input[i] == '\\') {
-			//	i++;
-			//}
-			else if (input[i] == '\"') {
-				quote = !quote;
-			}
-			else if (input[i] == ' ' && !quote) {
-				i++;
-				break;
-			}
-			operation += input[i];
-		}
-		return Command{ operation, Trim(input.substr(i))};
-	}
+	//Command Parse(const std::string& input)
+	//{
+	//	bool quote = false;
+	//	std::string operation;
+	//	size_t i = 0;
+	//	for (; i < input.size(); i++) {
+	//		if (operation.empty() && input[i] == ' ') {
+	//			continue;
+	//		}
+	//		//else if (input[i] == '\\') {
+	//		//	i++;
+	//		//}
+	//		else if (input[i] == '\"') {
+	//			quote = !quote;
+	//		}
+	//		else if (input[i] == ' ' && !quote) {
+	//			i++;
+	//			break;
+	//		}
+	//		operation += input[i];
+	//	}
+	//	return Command{ operation, Trim(input.substr(i))};
+	//}
 
 
 	Type ClassifyCommand(const std::string& command)

@@ -11,7 +11,6 @@
 #include <stdexcept>
 
 #include <tuple>
-#include "shellcommanddelegate.h"
 #include "keyhooker.h"
 #include "history.h"
 #include "taskqueue.h"
@@ -22,7 +21,7 @@
 
 //std::unique_ptr<ShellCommandDelegate> cmd;
 std::unique_ptr<KeyHooker> hooker;
-std::unique_ptr<History> history;
+std::shared_ptr<History> history;
 std::unique_ptr<TaskQueue<std::function<void()>>> queue;
 std::unique_ptr<SearchView> searchView;
 
@@ -76,9 +75,18 @@ int main()
         setlocale(LC_ALL, "");
 
         // new achitecture!!!!
+        
+        // history
+        history.reset(new History());
+        auto [ihistoryFile, iresult] = OpenHistoryFile();
+        if (ihistoryFile) {
+            history->Load(*ihistoryFile);
+            ihistoryFile->close();
+        }
+
         auto inputBuffer = std::make_shared<InputBuffer>();
         auto promptGate = std::make_shared<PromptGate>();
-        auto controller = std::make_shared<Controller>(inputBuffer, promptGate);
+        auto controller = std::make_shared<Controller>(inputBuffer, promptGate, history);
         auto [viewOpt, viewErr] = View::Create(inputBuffer, promptGate);
         if (viewErr) {
             return viewErr->code;
@@ -90,13 +98,7 @@ int main()
 
 
         
-        // history
-        history.reset(new History());
-        auto [ihistoryFile, iresult] = OpenHistoryFile();
-        if (ihistoryFile) {
-            history->Load(*ihistoryFile);
-            ihistoryFile->close();
-        }
+        
 
 
         // Open CONIN$ to async read
@@ -117,23 +119,6 @@ int main()
         DEFER([]() { ::CloseHandle(overLapped.hEvent); });
 
 
-        // CMD
-        //auto [value, error] = ShellCommandDelegate::Create();
-        //if (error) {
-        //    printf("%s %d\n", error->message.c_str(), error->code);
-        //    return error->code;
-        //}
-        //cmd.reset(*value);
-        //// on internal cmd.exe exited
-        //cmd->OnExit([]()
-        //    {
-        //        stop = true;
-        //        ::CancelIoEx(consoleIn, &overLapped);
-        //    }
-        //);
-        //DEFER([]() { cmd->Wait(); });
-
-
         // queue
         queue.reset(new TaskQueue<std::function<void()>>());
         queueThread = std::thread([&]() {
@@ -148,18 +133,18 @@ int main()
             if (!AmIActive() || searching) return false;
             // to return true means input has been processed here.
             switch (k.vkCode) {
-            case VK_UP:
-                queue->enqueue([&]() {
-                    //OutputDebugStringA("UP!!\n");
-                    Prev();
-                });
-                return true;
-            case VK_DOWN:
-                queue->enqueue([&]() {
-                    //OutputDebugStringA("DOWN!!\n");
-                    Next();
-                });
-                return true;
+            //case VK_UP:
+            //    queue->enqueue([&]() {
+            //        //OutputDebugStringA("UP!!\n");
+            //        Prev();
+            //    });
+            //    return true;
+            //case VK_DOWN:
+            //    queue->enqueue([&]() {
+            //        //OutputDebugStringA("DOWN!!\n");
+            //        Next();
+            //    });
+            //    return true;
             case 'R': // search mode
                 if (::GetAsyncKeyState(VK_CONTROL) & 0x8000) {
                     queue->enqueue([&]() {
