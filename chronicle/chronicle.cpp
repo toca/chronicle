@@ -69,7 +69,8 @@ int main()
 {
     // TODO
     // move history to ctrl and view
-    //
+    // "/C" option
+    // shown sound note in WindowsTerminal
     try {
         // locale
         setlocale(LC_ALL, "");

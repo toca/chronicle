@@ -150,13 +150,16 @@
     <ClCompile Include="historian.cpp" />
     <ClCompile Include="history.cpp" />
     <ClCompile Include="inputbuffer.cpp" />
+    <ClCompile Include="internalcommand.cpp" />
     <ClCompile Include="keyhooker.cpp" />
     <ClCompile Include="parse.cpp" />
+    <ClCompile Include="process.cpp" />
     <ClCompile Include="prompt.cpp" />
     <ClCompile Include="promptgate.cpp" />
     <ClCompile Include="searchcontroller.cpp" />
     <ClCompile Include="searchview.cpp" />
     <ClCompile Include="ShellCommandDelegate.cpp" />
+    <ClCompile Include="stringutil.cpp" />
     <ClCompile Include="view.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -168,8 +171,10 @@
     <ClInclude Include="historian.h" />
     <ClInclude Include="history.h" />
     <ClInclude Include="inputbuffer.h" />
+    <ClInclude Include="internalcommand.h" />
     <ClInclude Include="keyhooker.h" />
     <ClInclude Include="parse.h" />
+    <ClInclude Include="process.h" />
     <ClInclude Include="prompt.h" />
     <ClInclude Include="promptgate.h" />
     <ClInclude Include="resource.h" />
@@ -177,6 +182,7 @@
     <ClInclude Include="searchcontroller.h" />
     <ClInclude Include="searchview.h" />
     <ClInclude Include="shellcommanddelegate.h" />
+    <ClInclude Include="stringutil.h" />
     <ClInclude Include="taskqueue.h" />
     <ClInclude Include="view.h" />
   </ItemGroup>

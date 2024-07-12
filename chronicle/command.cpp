@@ -10,504 +10,416 @@
 #include "parse.h"
 #include "error.h"
 #include "result.h"
+#include "process.h"
+#include "defer.h"
 
-// global
-extern DWORD ERRORLEVEL;
 
 namespace Command
 {
-	// enum
-	enum class Type
+	struct Pipe 
 	{
-		EXTERNAL,
-		EMPTY,
-		CHANGE_DRIVE,
-		CD,
-		PUSHD,
-		POPD,
-		SET
+		HANDLE toWrite;
+		HANDLE toRead;
+	};
+	
+	enum class Status
+	{
+		Nothing,
+		Success,
+		Failure
 	};
 
+	// OpenFile for > or >>
+	Result<HANDLE> OpenFileForWrite(const std::string& path, bool append);
+	// OpenFile for <
+	Result<HANDLE> OpenFileForRead(const std::string& path);
+	// OpenPipe for |
+	Result<Pipe> OpenPipe();
+	// | pipeline | pipeline | ...
+	std::vector<std::vector<Command::Node>> SplitToPipeline(const std::vector<Command::Node>& nodes);
+	// command & command && command || command & ...
+	std::vector<std::vector<Command::Node>> SplitToCommandAndControlOp(const std::vector<Command::Node>& nodes);
+	
+	Result<DWORD> ExecuteCommand(const std::vector<Command::Node>& nodes, HANDLE inHandle, HANDLE outHandle, HANDLE errHandle);
 
-	// internal definition ----
+	void ShowError(DWORD code, HANDLE handle);
 
-	struct Command
-	{
-		// "C:Program Files\Foo\bar\pg.exe -opt1 -opt2"
-		const std::string operation;  // C:Program Files\Foo\bar\pg.exe
-		const std::string parameter;  // -opt1 -opt2
-	};
-	//Command Parse(const std::string& input);
-	Type ClassifyCommand(const std::string& command);
-	std::string Trim(const std::string& str);
-	bool IsDriveLetter(const std::string& str);
-	void SaveEachDrivePath(const char driveLetter);
-	std::string LoadEachDrivePath(const char driveLetter);
-
-	// command
-	DWORD ExecuteCommand(const std::string& command, const std::string& arguments);
-	DWORD Cd(const std::string& param);
-	DWORD Pushd(const std::string& param);
-	DWORD Popd(const std::string& param);
-	DWORD Set(const std::string& param);
-
-	// functions ----
+	std::string GetErrorMessage(DWORD code);
 
 
-	std::vector<std::string> directoryStack{};
 
+	
 	OptionalError Execute(const std::string& input)
 	{
-
+		// TODO
+		// * More?
+		// * Error handling and show error message.
+		// * 2>&1
+		// * return exit code
 		auto [nodes, err] = Parse(input);
 		if (err) {
 			//fprintf(stderr, "The syntax of the command is incorrect.");
 			return Error(err->code, "The syntax of the command is incorrect.");
 		}
+		HANDLE inHandle = ::GetStdHandle(STD_INPUT_HANDLE);
+		HANDLE outHandle = ::GetStdHandle(STD_OUTPUT_HANDLE);
+		HANDLE errHandle = ::GetStdHandle(STD_ERROR_HANDLE);
+
+		// echo Hello && dir | find "file" | sort > sorted_files.txt
+		// TODO split to block
+		// pipeline
+		DWORD exitCode = 0;
+		for (auto& pipeline : SplitToPipeline(*nodes)) {
+			// 
+			Status status = Status::Nothing;
+			auto commands = SplitToCommandAndControlOp(pipeline);
+			// command > file && command < file & command
+			bool skip = false;
+			for (size_t i = 0; i < commands.size(); i++) {
+				if (skip) {
+					skip = false;
+				}
+				else {
+					auto [code, err] = ExecuteCommand(commands.at(i), inHandle, outHandle, errHandle);
+					if (err) {
+						return err;
+					}
+					exitCode = *code;
+					status = exitCode == ERROR_SUCCESS ? Status::Success : Status::Failure;
+					if (exitCode != ERROR_SUCCESS) {
+						ShowError(exitCode, errHandle);
+					}
+				}
+				
+				// look at operator
+				if (commands.size() <= i + 1) {
+					continue;
+				}
+				if (commands.at(i + 1).at(0).type == NodeType::And) {
+					if (status == Status::Failure) {
+						skip = true;
+					}
+					i++;
+				}
+				else if (commands.at(i + 1).at(0).type == NodeType::Or) {
+					if (status == Status::Success) {
+						skip = true;
+					}
+					i++;
+				}
+				else if (commands.at(i + 1).at(0).type == NodeType::Separator) {
+					i++;
+				}
+				else {
+					return Error(ERROR_INVALID_FUNCTION, "LogicalError Execute@command.cpp");
+				}
+			}
+		}
+		return std::nullopt;
+		// redirection
+		// command
 
 		// current process
 		// process list?
-		// current 1
-		// current 2
+		// current 1 (stdout)
+		// current 2 (stderr)
 		// >, >>, &, &&, ||, | 
 		// 2>&1
+		std::vector<std::unique_ptr<Process>> processes;
+		std::vector<HANDLE> files;
+		std::vector<Pipe> pipes;
+
+		// prepare processes
+		/*
 		for (size_t i = 0; i < nodes->size(); i++)
 		{
 			switch (nodes->at(i).type)
 			{
 			case NodeType::End:
-				return std::nullopt;
+				break;
+				//return std::nullopt;
 			case NodeType::Command:
-				if (nodes->at(i + 1).type == NodeType::Redirect && nodes->at(i + 2).type == NodeType::File) {
-
+			{
+				// Redirect  ">" or ">>"
+				if (nodes->at(i + 1).type == NodeType::Redirect || nodes->at(i + 1).type == NodeType::Append) {
+					if (nodes->at(i + 2).type != NodeType::File) {
+						return Error(ERROR_INVALID_FUNCTION, "LogicalError Execute@command.cpp");
+					}
+					bool append = nodes->at(i + 1).type == NodeType::Append;
+					auto [handle, err] = OpenFile(nodes->at(i + 2).file, append);
+					if (err) {
+						return err;
+					}
+					else {
+						files.push_back(*handle);
+					}
+					processes.push_back(std::make_unique<Process>(nodes->at(i).command, nodes->at(i).arguments, inHandle, *handle, errHandle));
+					i += 2;
+				}
+				// Pipe "|"
+				else if (nodes->at(i + 1).type == NodeType::Pipe) {
+					if (nodes->at(i + 2).type != NodeType::Command) {
+						return Error(ERROR_INVALID_FUNCTION, "LogicalError Execute@command.cpp");
+					}
+					auto [pipe, err] = OpenPipe();
+					if (err) {
+						return err;
+					}
+					pipes.push_back(*pipe);
+					processes.push_back(std::make_unique<Process>(nodes->at(i).command, nodes->at(i).arguments, inHandle, pipe->toWrite, errHandle));
+					processes.push_back(std::make_unique<Process>(nodes->at(i+2).command, nodes->at(i+2).arguments, pipe->toRead, outHandle, errHandle));
+					i += 2;
 				}
 				else {
-					ExecuteCommand(nodes->at(i).command, nodes->at(i).arguments);
+					processes.push_back(std::make_unique<Process>(nodes->at(i).command, nodes->at(i).arguments, inHandle, outHandle, errHandle));
+					//ExecuteCommand(nodes->at(i).command, nodes->at(i).arguments);
 				}
 			}
-
-			/*Type type = ClassifyCommand(nodes->at(i).command);
-			DWORD result = 0;
-			if (type == Type::EXTERNAL) {
-				result = system(input.c_str());
-				::SetEnvironmentVariableA("ERRORLEVEL", std::to_string(result).c_str());
 			}
-
-			switch (type)
-			{
-			case Type::CHANGE_DRIVE:
-				ERRORLEVEL = Cd("/D " + nodes->at(i).command);
-				break;
-			case Type::CD:
-				ERRORLEVEL = Cd(nodes->at(i).arguments);
-				break;
-			case Type::PUSHD:
-				ERRORLEVEL = Pushd(nodes->at(i).arguments);
-				break;
-			case Type::POPD:
-				ERRORLEVEL = Popd(nodes->at(i).arguments);
-				break;
-			case Type::SET:
-				ERRORLEVEL = Set(nodes->at(i).arguments);
-				break;
-			case Type::EXTERNAL:
-				break;
-			default:
-				break;
-			}*/
 		}
+
+		// start process
+		for (auto& process : processes) {
+			// TODO
+			// file locked or etc...
+			auto startErr = process->Start();
+			if (startErr) {
+				if (startErr->code == ERROR_FILE_NOT_FOUND) {
+					fprintf(stderr, "'%s' is not recognized as an internal or external command,\n", process->command.c_str());
+				}
+				auto msg = GetErrorMessage(startErr->code);
+				fprintf(stderr, "%s\n", msg.c_str());
+				puts("");
+				continue;
+			}
+			auto [exitCode, err] = process->WaitForExit();
+			if (err) {
+				auto msg = GetErrorMessage(err->code);
+				fprintf(stderr, "%s", msg.c_str()); // ErrorMassage coutains \r\n
+			}
+			else {
+				puts("");
+			}
+		}
+		//processes[1]->Start();
+		//processes[0]->Start();
+		//processes[0]->WaitForExit();
+		//processes[1]->WaitForExit();
+		for (auto file : files) {
+			::CloseHandle(file);
+		}
+		for (auto& pipe : pipes) {
+			::CloseHandle(pipe.toWrite);
+			::CloseHandle(pipe.toRead);
+		}
+
 		return std::nullopt;
-
-		// TODO parse input e.g. "echo one & echo two"
-		// &  &&  ||
-		// TODO redirect? > pipe? |
-		// NUL => HANDLE hFile = CreateFile("NUL", GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-		// At first impl pipe |
-		// difference of beween | and > are only handle?
-		// parse: command <parameter> < '|' '>' '<' '>>' '&' '&&' '||' > command ...
-
-		//Command command = Parse(input);
-		//Type type = ClassifyCommand(command.operation);
-		//
-		//DWORD result = 0;
-		//if (type == Type::EXTERNAL) {
-		//	result = system(input.c_str());
-		//	::SetEnvironmentVariableA("ERRORLEVEL", std::to_string(result).c_str());
-		//}
-		//
-		//switch (ClassifyCommand(command.operation))
-		//{
-		//case Type::CHANGE_DRIVE:
-		//	ERRORLEVEL = Cd("/D " + command.operation);
-		//	break;
-		//case Type::CD:
-		//	ERRORLEVEL = Cd(command.parameter);
-		//	break;
-		//case Type::PUSHD:
-		//	ERRORLEVEL = Pushd(command.parameter);
-		//	break;
-		//case Type::POPD:
-		//	ERRORLEVEL = Popd(command.parameter);
-		//	break;
-		//case Type::SET:
-		//	ERRORLEVEL = Set(command.parameter);
-		//	break;
-		//case Type::EXTERNAL:
-		//	break;
-		//default:
-		//	break;
-		//}
+		*/
 
 		//puts("");
 		//return result;
 	}
 
-	// command ---- -----
-
-	DWORD ExecuteCommand(const std::string& command, const std::string& arguments)
+	std::vector<std::vector<Command::Node>> SplitToPipeline(const std::vector<Command::Node>& nodes)
 	{
-		Type type = ClassifyCommand(command);
-		DWORD result = 0;
-		if (type == Type::EXTERNAL) {
-			result = system((command + " " + arguments).c_str());
-			::SetEnvironmentVariableA("ERRORLEVEL", std::to_string(result).c_str());
+		std::vector<std::vector<Command::Node>> result{};
+		std::vector<Command::Node> pipeline{};
+		for (auto& node : nodes) {
+			if (node.type == NodeType::Pipe) {
+				result.push_back(pipeline);
+				pipeline = {};
+			}
+			else {
+				pipeline.push_back(node);
+			}
 		}
-
-		switch (type)
-		{
-		case Type::CHANGE_DRIVE:
-			ERRORLEVEL = Cd("/D " + command);
-			break;
-		case Type::CD:
-			ERRORLEVEL = Cd(arguments);
-			break;
-		case Type::PUSHD:
-			ERRORLEVEL = Pushd(arguments);
-			break;
-		case Type::POPD:
-			ERRORLEVEL = Popd(arguments);
-			break;
-		case Type::SET:
-			ERRORLEVEL = Set(arguments);
-			break;
-		case Type::EXTERNAL:
-			break;
-		default:
-			break;
+		if (0 < pipeline.size()) {
+			result.push_back(pipeline);
 		}
 		return result;
 	}
-	
-	DWORD Cd(const std::string& param)
+
+
+	std::vector<std::vector<Command::Node>> SplitToCommandAndControlOp(const std::vector<Command::Node>& nodes)
 	{
-		if (param == "/?") {
-			return system("cd /?");
-		}
-		if (param.empty()) {
-			return system("cd");
-		}
-
-		std::string option;
-		std::string drive;
-		std::string path;
-		enum Mode {
-			OPT,
-			DRIVE,
-			PATH,
-			FINISH
-		};
-		Mode mode = OPT;
-		
-		for (size_t i = 0; i < param.size();) {
-			char c = param[i];
-			switch (mode) {
-			case OPT:
-				if (c == ' ') {
-					i++;
-					continue;
-				}
-				if (c == '/') {
-					if (param[i + 1] == 'D' || param[i + 1] == 'd') {
-						option = "/D";
-						i += 2;
-					}
-					else if (param[i + 1] == '?') {
-						option = "/?";
-						i += 2;
-					}
-				}
-				mode = DRIVE;
-				break;
-			case DRIVE:
-				if (c == ' ') {
-					i++;
-					continue;
-				}
-				if (isalpha(c) && param[i + 1] == ':') {
-					drive = std::string({ char(std::toupper(c)), ':' });
-					i += 2;
-				}
-				mode = PATH;
-				break;
-			case PATH:
-				path += c;
-				i++;
-				break;
-			case FINISH:
-				i++;
-				break;
-			}
-		}
-		
-		
-		char currentDirectory[MAX_PATH];
-		::GetCurrentDirectoryA(MAX_PATH, currentDirectory);
-		bool otherDrive = drive.empty() ? false : strncmp(currentDirectory, drive.c_str(), 2) != 0;
-		bool driveOpt = option == "/D";
-
-
-		// TODO if drive not found when cd D:
-		// TODO Fix first location in the list. It is wrong.
-		/*
-		* - Path specified ==============================
-		*                      -cross drive-
-		*        +------------+------------+-----------+
-		*        |            |    True    |   False   |
-		*        +------------+------------+-----------+
-		*  -/D-  |    True    |      1     |     2     |
-		*        +------------+------------+-----------+
-		*        |    False   |      3     |     4     |
-		*        +------------+------------+-----------+
-		* 
-		* - Path not specified ==========================
-		*                      -cross drive- 
-		*        +------------+------------+-----------+
-		*        |            |    True    |   False   |
-		*        +------------+------------+-----------+
-		*  -/D-  |    True    |      5     |     6     |
-		*        +------------+------------+-----------+
-		*        |    False   |      7     |     8     |
-		*        +------------+------------+-----------+
-		* 
-		*  1. Move to other drive and path.
-		*  2. Move to other drive and path.
-		*  3. Do nothing with no error.
-		*  4. Move to the same drive.
-		*  5. Move to other drive. Use saved path.
-		*  6. Move to other drive. Use saved path.
-		*  7. Show saved path.
-		*  8. Show saved path.
-		*/
-		if (path.size()) {
-			// cd Z:\foobar
-			if (otherDrive && !driveOpt) {
-				return 0;
-			}
-			
-			SaveEachDrivePath(currentDirectory[0]);
-			::SetCurrentDirectoryA((drive + path).c_str());
-			DWORD err = ::GetLastError();
-			system(("cd " + drive + path).c_str());
-			return err;
-		}
-		else {
-			if (otherDrive && driveOpt) {
-				// move other drive
-				SaveEachDrivePath(currentDirectory[0]);
-				std::string dist = LoadEachDrivePath(drive.at(0));
-				::SetCurrentDirectoryA(dist.c_str());
-				DWORD err = ::GetLastError();
-				system(("cd /D " + dist).c_str());
-				return err;
-			}
-
-			// only show currend saved drive
-			std::string dist = LoadEachDrivePath(drive.at(0));
-			printf("%s\n", dist.c_str());
-			return 0;
-		}
-	}
-
-
-	DWORD Pushd(const std::string& param)
-	{
-		if (param == "/?") {
-			return system("pushd /?");
-		}
-		if (param.size()) {
-			char buf[MAX_PATH];
-			::GetCurrentDirectoryA(MAX_PATH, buf);
-			if (::SetCurrentDirectoryA(Trim(param).c_str())) {
-				directoryStack.push_back(buf);
-			} else {
-				return ::GetLastError();
-			}
-		}
-		else { // show stack
-			for (auto it = directoryStack.rbegin(); it != directoryStack.rend(); it++) {
-				printf("* \x1b[97m%s\x1b[0m\n", it->c_str());
-			}
-		}
-		return 0;
-	}
-
-
-	DWORD Popd(const std::string& param)
-	{
-		if (param == "/?") {
-			return system("pushd /?");
-		}
-		if (directoryStack.size()){
-			std::string dir = directoryStack.back();
-			if (::SetCurrentDirectoryA(dir.c_str())) {
-				directoryStack.pop_back();
+		std::vector<std::vector<Command::Node>> result{};
+		std::vector<Command::Node> commandAndRedirect{};
+		for (auto& node : nodes) {
+			if (node.type == NodeType::And || node.type == NodeType::Separator || node.type == NodeType::Or) {
+				result.push_back(commandAndRedirect);
+				result.push_back({ node });
+				commandAndRedirect = {}; // renew
 			}
 			else {
-				return ::GetLastError();
+				commandAndRedirect.push_back(node);
 			}
 		}
-		return 0;
+		if (0 < commandAndRedirect.size()) {
+			result.push_back(commandAndRedirect);
+		}
+		return result;
+	}
+
+	
+	Result<DWORD> ExecuteCommand(const std::vector<Command::Node>& nodes, HANDLE inHandle, HANDLE outHandle, HANDLE errHandle)
+	{
+		std::vector<HANDLE> handles{};
+		DEFER([&handles]() 
+			{
+				for (HANDLE& handle : handles) {
+					::OutputDebugStringA("CloseHandles\n");
+					::CloseHandle(handle);
+				}
+			}
+		);
+		Node command = nodes.at(0);
+		for (size_t i = 1; i < nodes.size(); i++) {
+			if (nodes.at(i).type == NodeType::Redirect) {
+				auto [handle, err] = OpenFileForWrite(nodes.at(i + 1).file, false);
+				if (err) return { std::nullopt, err };
+				handles.push_back(*handle);
+				outHandle = *handle;
+			}
+			else if (nodes.at(i).type == NodeType::Append) {
+				auto [handle, err] = OpenFileForWrite(nodes.at(i + 1).file, true);
+				if (err) return { std::nullopt, err };
+				handles.push_back(*handle);
+				outHandle = *handle;
+			}
+			else if (nodes.at(i).type == NodeType::Input) {
+				auto [handle, err] = OpenFileForRead(nodes.at(i + 1).file);
+				if (err) return { std::nullopt, err };
+				handles.push_back(*handle);
+				inHandle = *handle;
+			}
+		}
+		Process p(command.command, command.arguments, inHandle, outHandle, errHandle);
+		auto startErr = p.Start();
+		if (startErr) return { std::nullopt, startErr };
+		auto [code, waitErr] = p.WaitForExit();
+		if (waitErr) return { std::nullopt, waitErr };
+		return { *code, std::nullopt };
 	}
 
 
-	DWORD Set(const std::string& param)
-	{
-		if (param == "/?") {
-			return system("set /?");
-		}
-		// /A = argebric?    /P = prompt
-		if (param.starts_with("/A") || param.starts_with("/a")) {
-			return system(("set " + param).c_str());
-		}
-		else if (param.starts_with("/P") || param.starts_with("/p")) {
-			size_t pos = param.find('=');
-			if (pos == std::string::npos) {
-				// invalid arguments
-				return system(("set " + param).c_str());
-			}
-			std::string name = param.substr(0, pos);
-			std::string prompt = param.substr(pos + 1);
-			printf("%s", prompt.c_str());
-			std::string input;
-			std::getline(std::cin, input);
-			if (!::SetEnvironmentVariableA(name.c_str(), input.c_str())) {
-				return ::GetLastError();
-			}
-			return 0;
+	Result<HANDLE> OpenFileForWrite(const std::string& path, bool append) {
+		SECURITY_ATTRIBUTES sa;
+		sa.nLength = sizeof(sa);
+		sa.lpSecurityDescriptor = nullptr;
+		sa.bInheritHandle = TRUE;
+
+		DWORD creationDisposition = 0;
+		std::string actualPath;
+		if (_stricmp(path.c_str(), "NUL") == 0) {
+			creationDisposition = OPEN_EXISTING;
+			actualPath = "NUL";
 		}
 		else {
-			size_t pos = param.find('=');
-			if (pos == std::string::npos) {
-				// show env
-				return system(("set " + param).c_str());
-			}
-			// set env
-			std::string name = param.substr(0, pos);
-			std::string value = param.substr(pos + 1);
-			if (!::SetEnvironmentVariableA(name.c_str(), value.c_str())) {
-				return ::GetLastError();
-			}
-			return 0;
+			creationDisposition = append ? OPEN_ALWAYS : CREATE_ALWAYS;
+			DWORD fullPathLength = ::GetFullPathNameA(path.c_str(), 0, nullptr, nullptr);
+			std::string buf(fullPathLength + 1, '/0');
+			::GetFullPathNameA(path.c_str(), buf.size(), buf.data(), nullptr);
+			actualPath = "\\\\?\\" + buf;
 		}
+		
+
+		HANDLE h = ::CreateFileA(
+			actualPath.c_str(), 
+			GENERIC_WRITE,
+			FILE_SHARE_READ | FILE_SHARE_WRITE,
+			&sa,
+			creationDisposition,
+			FILE_ATTRIBUTE_NORMAL,
+			nullptr
+		);
+		if (h == INVALID_HANDLE_VALUE) {
+			auto err = ::GetLastError();
+			return { std::nullopt, Error(err, "Failed to CreateFile OpenFileForWrite@command.cpp") };
+		}
+		if (append) {
+			if (::SetFilePointer(h, 0, nullptr, FILE_END) == INVALID_SET_FILE_POINTER){
+				auto err = ::GetLastError();
+				return { std::nullopt, Error(err, "Failed to ::SetFilePointer OpenFileForWrite@command.cpp") };
+			}
+		}
+		return { h, std::nullopt };
 	}
 
-	// internal functions ---- ----
+
+	Result<HANDLE> OpenFileForRead(const std::string& path) {
+		SECURITY_ATTRIBUTES sa;
+		sa.nLength = sizeof(sa);
+		sa.lpSecurityDescriptor = nullptr;
+		sa.bInheritHandle = TRUE;
+
+		DWORD fullPathLength = ::GetFullPathNameA(path.c_str(), 0, nullptr, nullptr);
+		std::string buf(fullPathLength + 1, '/0');
+		::GetFullPathNameA(path.c_str(), buf.size(), buf.data(), nullptr);
+		std::string actualPath = "\\\\?\\" + buf;
+		
+		HANDLE h = ::CreateFileA(
+			actualPath.c_str(),
+			GENERIC_READ,
+			FILE_SHARE_READ | FILE_SHARE_WRITE,
+			&sa,
+			OPEN_EXISTING,
+			FILE_ATTRIBUTE_NORMAL,
+			nullptr
+		);
+		if (h == INVALID_HANDLE_VALUE) {
+			auto err = ::GetLastError();
+			return { std::nullopt, Error(err, "Failed to CreateFile OpenFileForRead@command.cpp") };
+		}
+		return { h, std::nullopt };
+	}
 
 
-	//Command Parse(const std::string& input)
-	//{
-	//	bool quote = false;
-	//	std::string operation;
-	//	size_t i = 0;
-	//	for (; i < input.size(); i++) {
-	//		if (operation.empty() && input[i] == ' ') {
-	//			continue;
-	//		}
-	//		//else if (input[i] == '\\') {
-	//		//	i++;
-	//		//}
-	//		else if (input[i] == '\"') {
-	//			quote = !quote;
-	//		}
-	//		else if (input[i] == ' ' && !quote) {
-	//			i++;
-	//			break;
-	//		}
-	//		operation += input[i];
-	//	}
-	//	return Command{ operation, Trim(input.substr(i))};
-	//}
-
-
-	Type ClassifyCommand(const std::string& command)
+	Result<Pipe> OpenPipe()
 	{
-		if (command.empty()) {
-			return Type::EMPTY;
+		// Security Attributes to use handle by child process
+		SECURITY_ATTRIBUTES security{};
+		security.nLength = sizeof(SECURITY_ATTRIBUTES);
+		security.bInheritHandle = TRUE;
+		HANDLE read{};
+		HANDLE write{};
+		if (!::CreatePipe(&read, &write, &security, 0)) {
+			return { std::nullopt, Error(::GetLastError(),  "Failed to ::CreatePipe OpenPipe@command.cpp") };
 		}
-		else if(_stricmp(command.c_str(), "cd") == 0) {
-			return Type::CD;
-		}
-		else if (_stricmp(command.c_str(), "pushd") == 0) {
-			return Type::PUSHD;
-		}
-		else if (_stricmp(command.c_str(), "popd") == 0) {
-			return Type::POPD;
-		}
-		else if (_stricmp(command.c_str(), "set") == 0) {
-			return Type::SET;
-		}
-		else if (IsDriveLetter(command)) {
-			return Type::CHANGE_DRIVE;
-		}
-		else {
-			return Type::EXTERNAL;
-		}
+		// ? 
+		::SetHandleInformation(read, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT);
+		::SetHandleInformation(write, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT);
+
+		return { Pipe{ write, read }, std::nullopt };
 	}
 
 
-	std::string Trim(const std::string& str) {
-		size_t first = str.find_first_not_of(' ');
-		if (first == std::string::npos)
+	void ShowError(DWORD code, HANDLE handle)
+	{
+		std::string message = GetErrorMessage(code);
+		DWORD written = 0;
+		::WriteFile(handle, message.data(), message.size(), &written, nullptr);
+	}
+
+	std::string GetErrorMessage(DWORD code)
+	{
+		char* buf = 0;
+		auto len = ::FormatMessageA(
+			FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+			nullptr,
+			code,
+			MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+			reinterpret_cast<char*>(& buf),
+			0,
+			nullptr
+		);
+		// FIXME
+		if (len == 0) {
+			auto err = ::GetLastError();
 			return "";
-		size_t last = str.find_last_not_of(' ');
-		return str.substr(first, (last - first + 1));
-	}
-
-
-	bool IsDriveLetter(const std::string& str)
-	{
-		// expect like C:
-		if (str.length() != 2) {
-			return false;
 		}
-		// first character must be alpha
-		if (!std::isalpha(str[0])) {
-			return false;
-		}
-		// second character must be :
-		if (str[1] != ':') {
-			return false;
-		}
-		return true;
-	}
-
-
-	std::vector<std::string> paths{ "A:\\", "B:\\", "C:\\", "D:\\", "E:\\", "F:\\", "G:\\", "H:\\", "I:\\", "J:\\", "K:\\", "L:\\", "M:\\", "N:\\",
-		"O:\\", "P:\\", "Q:\\", "R:\\", "S:\\", "T:\\", "U:\\", "V:\\", "W:\\", "X:\\", "Y:\\" , "Z:\\" };
-
-	void SaveEachDrivePath(const char driveLetter)
-	{
-		size_t index = std::tolower(driveLetter) - 'a';
-		char buf[MAX_PATH];
-		::GetCurrentDirectoryA(MAX_PATH, buf);
-		paths[index] = std::string(buf);
-	}
-
-
-	std::string LoadEachDrivePath(const char driveLetter)
-	{
-		size_t index = std::tolower(driveLetter) - 'a';
-		return paths.at(index);
+		std::string result(buf);
+		::LocalFree(buf);
+		return result;
 	}
 }
 

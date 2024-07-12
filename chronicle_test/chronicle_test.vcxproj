@@ -164,8 +164,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\chronicle\command.cpp" />
     <ClCompile Include="..\chronicle\history.cpp" />
+    <ClCompile Include="..\chronicle\internalcommand.cpp" />
     <ClCompile Include="..\chronicle\parse.cpp" />
+    <ClCompile Include="..\chronicle\process.cpp" />
+    <ClCompile Include="..\chronicle\stringutil.cpp" />
     <ClCompile Include="chronicle_test.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -177,6 +181,9 @@
   <ItemGroup>
     <ClInclude Include="..\chronicle\history.h" />
     <ClInclude Include="pch.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="test.bat" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

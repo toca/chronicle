@@ -6,6 +6,7 @@
 #include <string>
 #include "history.h"
 #include "parse.h"
+#include "command.h"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
@@ -254,6 +255,7 @@ namespace chronicletest
 			Assert::AreEqual(std::string("echo"), nodes->at(0).command);
 			Assert::AreEqual(std::string("foo "), nodes->at(0).arguments);
 			Assert::IsTrue(NodeType::Redirect == nodes->at(1).type);
+			Assert::IsTrue(NodeType::File == nodes->at(2).type);
 			Assert::AreEqual(std::string("filename"), nodes->at(2).file);
 		}
 		TEST_METHOD(CommandsWithAppend)
@@ -310,7 +312,43 @@ namespace chronicletest
 			Assert::IsTrue(NodeType::Append == nodes->at(1).type);
 			Assert::AreEqual(std::string("filename"), nodes->at(2).file);
 		}
-		
+		TEST_METHOD(RequireFile)
+		{
+			auto [nodes, err] = Command::Parse("echo foo >");
+			Assert::AreEqual(ERROR_INVALID_FUNCTION, long(err->code));
+			Assert::AreEqual(std::string("The syntax of the command is incorrect."), err->message);
+		}
+		TEST_METHOD(RequireFileAppend)
+		{
+			auto [nodes, err] = Command::Parse("echo foo >>");
+			Assert::AreEqual(ERROR_INVALID_FUNCTION, long(err->code));
+			Assert::AreEqual(std::string("The syntax of the command is incorrect."), err->message);
+		}
+		TEST_METHOD(RequireCommandPipe)
+		{
+			auto [nodes, err] = Command::Parse("echo foo |");
+			Assert::AreEqual(ERROR_INVALID_FUNCTION, long(err->code));
+			Assert::AreEqual(std::string("The syntax of the command is incorrect."), err->message);
+		}
+		TEST_METHOD(RequireCommandOr)
+		{
+			auto [nodes, err] = Command::Parse("echo foo ||");
+			Assert::AreEqual(ERROR_INVALID_FUNCTION, long(err->code));
+			Assert::AreEqual(std::string("The syntax of the command is incorrect."), err->message);
+		}
+		TEST_METHOD(RequireCommand)
+		{
+			// "echo foo &" is valid for cmd.exe.
+			auto [nodes, err] = Command::Parse("echo foo &");
+			Assert::AreEqual(ERROR_INVALID_FUNCTION, long(err->code));
+			Assert::AreEqual(std::string("The syntax of the command is incorrect."), err->message);
+		}
+		TEST_METHOD(RequireCommandShort)
+		{
+			auto [nodes, err] = Command::Parse("echo foo &&");
+			Assert::AreEqual(ERROR_INVALID_FUNCTION, long(err->code));
+			Assert::AreEqual(std::string("The syntax of the command is incorrect."), err->message);
+		}
 
 		//TEST_METHOD(Complex) 
 		//{
@@ -319,5 +357,234 @@ namespace chronicletest
 		//	auto res = Command::Parse("echo foo & type test.txt | ")
 		//	Assert::IsTrue(true);
 		//}
+	};
+
+
+	// for commandtest
+	HANDLE originalStdIn, originalStdOut, originalStdErr;
+	HANDLE pipeStdInRead, pipeStdInWrite;
+	HANDLE pipeStdOutRead, pipeStdOutWrite;
+	HANDLE pipeStdErrRead, pipeStdErrWrite;
+
+	TEST_CLASS(commandtest)
+	{
+		HANDLE OpenFileForRead(const std::string& path)
+		{
+			return ::CreateFileA(
+				path.c_str(),
+				GENERIC_READ,
+				FILE_SHARE_READ | FILE_SHARE_WRITE,
+				nullptr,
+				OPEN_EXISTING,
+				FILE_ATTRIBUTE_NORMAL,
+				nullptr
+			);
+		}
+		
+		TEST_CLASS_INITIALIZE(setup)
+		{
+			// replace std handles to read from test code.
+			originalStdIn = ::GetStdHandle(STD_INPUT_HANDLE);
+			originalStdOut = ::GetStdHandle(STD_OUTPUT_HANDLE);
+			originalStdErr = ::GetStdHandle(STD_ERROR_HANDLE);
+
+			::CreatePipe(&pipeStdInRead, &pipeStdInWrite, nullptr, 0);
+			::CreatePipe(&pipeStdOutRead, &pipeStdOutWrite, nullptr, 0);
+			::CreatePipe(&pipeStdErrRead, &pipeStdErrWrite, nullptr, 0);
+
+			SetHandleInformation(pipeStdOutWrite, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT);
+			SetHandleInformation(pipeStdErrWrite, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT);
+			SetHandleInformation(pipeStdInRead, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT);
+			DWORD handle = 0;
+			auto res = GetHandleInformation(pipeStdOutWrite, &handle);
+
+			// Redirect standard input, output, and error to the pipes
+			SetStdHandle(STD_INPUT_HANDLE, pipeStdInRead);
+			SetStdHandle(STD_OUTPUT_HANDLE, pipeStdOutWrite);
+			SetStdHandle(STD_ERROR_HANDLE, pipeStdErrWrite);
+		}
+		TEST_CLASS_CLEANUP(teardown)
+		{
+			SetStdHandle(STD_INPUT_HANDLE, originalStdIn);
+			SetStdHandle(STD_OUTPUT_HANDLE, originalStdOut);
+			SetStdHandle(STD_ERROR_HANDLE, originalStdErr);
+
+			// Close pipe handles
+			CloseHandle(pipeStdInRead);
+			CloseHandle(pipeStdInWrite);
+			CloseHandle(pipeStdOutRead);
+			CloseHandle(pipeStdOutWrite);
+			CloseHandle(pipeStdErrRead);
+			CloseHandle(pipeStdErrWrite);
+		}
+		
+		TEST_METHOD(OnlySingleCommand)
+		{
+			auto error = Command::Execute("echo foo");
+			Assert::IsFalse(error.has_value());
+			std::string buf(1024, '\0');
+			DWORD read = 0;
+			BOOL res = ::ReadFile(pipeStdOutRead, buf.data(), buf.size(), &read, nullptr);
+			Assert::IsTrue(res);
+			Assert::AreEqual(0, strcmp(buf.data(), "foo\n"));
+		}
+		TEST_METHOD(Redirect)
+		{
+			auto error = Command::Execute("echo test redirect > output.txt");
+			Assert::IsFalse(error.has_value());
+			HANDLE h = ::CreateFileA(
+				"output.txt",
+				GENERIC_READ,
+				FILE_SHARE_READ | FILE_SHARE_WRITE,
+				nullptr,
+				OPEN_EXISTING,
+				FILE_ATTRIBUTE_NORMAL,
+				nullptr
+			);
+			std::string buf(1024, '\0');
+			DWORD read = 0;
+			BOOL res = ::ReadFile(h, buf.data(), buf.size(), &read, nullptr);
+			Assert::IsTrue(res);
+			Assert::AreEqual(0, strcmp(buf.data(), "test redirect \n"));
+			::CloseHandle(h);
+			system("del output.txt");
+		}
+		TEST_METHOD(Append)
+		{
+			auto error1 = Command::Execute("echo one> output.txt");
+			Assert::IsFalse(error1.has_value());
+			auto error2 = Command::Execute("echo two>> output.txt");
+			HANDLE h = OpenFileForRead("output.txt");
+			Assert::IsFalse(error2.has_value());
+			std::string buf(1024, '\0');
+			DWORD read = 0;
+			BOOL res = ::ReadFile(h, buf.data(), buf.size(), &read, nullptr);
+			Assert::IsTrue(res);
+			Assert::AreEqual(0, strcmp(buf.data(), "one\ntwo\n"));
+			::CloseHandle(h);
+			system("del output.txt");
+		}
+		TEST_METHOD(Input)
+		{
+			system("echo input test> input.txt");
+			auto error = Command::Execute("findstr ""^"" < input.txt");
+			Assert::IsFalse(error.has_value());
+			std::string buf(1024, '\0');
+			DWORD read = 0;
+			BOOL res = ::ReadFile(pipeStdOutRead, buf.data(), buf.size(), &read, nullptr);
+			Assert::IsTrue(res);
+			Assert::AreEqual(0, strcmp(buf.data(), "input test\r\n"));
+			system("del input.txt");
+		}
+		TEST_METHOD(AndOpExecuteBoth) 
+		{
+			auto error = Command::Execute("echo foo && echo bar");
+			Assert::IsFalse(error.has_value());
+			std::string buf(1024, '\0');
+			DWORD read = 0;
+			BOOL res = ::ReadFile(pipeStdOutRead, buf.data(), buf.size(), &read, nullptr);
+			Assert::IsTrue(res);
+			Assert::AreEqual(0, strcmp(buf.data(), "foo \nbar\n"));
+		}
+		TEST_METHOD(AndOpExecuteFirst)
+		{
+			system("echo exist> output.txt");
+			auto error = Command::Execute("call && del output.txt");
+			Assert::IsFalse(error.has_value());
+			HANDLE h = OpenFileForRead("output.txt");
+			std::string buf(1024, '\0');
+			DWORD read = 0;
+			BOOL res = ::ReadFile(h, buf.data(), buf.size(), &read, nullptr);
+			Assert::IsTrue(res);
+			Assert::AreEqual(0, strcmp(buf.data(), "exist\r\n"));
+			system("del output.txt");
+		}
+		TEST_METHOD(OrOpExcuteBoth) 
+		{
+			auto error = Command::Execute("call || echo last");
+			Assert::IsFalse(error.has_value());
+			std::string buf(1024, '\0');
+			DWORD read = 0;
+			BOOL res = ::ReadFile(pipeStdOutRead, buf.data(), buf.size(), &read, nullptr);
+			Assert::IsTrue(res);
+			Assert::AreEqual(0, strcmp(buf.data(), "last\n"));
+		}
+		TEST_METHOD(OrOpExcuteFirst)
+		{
+			system("echo exist> output.txt");
+			auto error = Command::Execute("call || del output.txt");
+			Assert::IsFalse(error.has_value());
+			HANDLE h = OpenFileForRead("output.txt");
+			std::string buf(1024, '\0');
+			DWORD read = 0;
+			BOOL res = ::ReadFile(h, buf.data(), buf.size(), &read, nullptr);
+			Assert::IsTrue(res);
+			Assert::AreEqual(0, strcmp(buf.data(), "exist\r\n"));
+			system("del output.txt");
+		}
+		TEST_METHOD(SeparatorOpExcuteBothIfFaileFist)
+		{
+			auto error = Command::Execute("call & echo last");
+			Assert::IsFalse(error.has_value());
+			std::string buf(1024, '\0');
+			DWORD read = 0;
+			BOOL res = ::ReadFile(pipeStdOutRead, buf.data(), buf.size(), &read, nullptr);
+			Assert::IsTrue(res);
+			Assert::AreEqual(0, strcmp(buf.data(), "last\n"));
+		}
+		TEST_METHOD(SeparatorOpExcuteBoth)
+		{
+			auto error = Command::Execute("echo first&echo last");
+			Assert::IsFalse(error.has_value());
+			std::string buf(1024, '\0');
+			DWORD read = 0;
+			BOOL res = ::ReadFile(pipeStdOutRead, buf.data(), buf.size(), &read, nullptr);
+			Assert::IsTrue(res);
+			Assert::AreEqual(0, strcmp(buf.data(), "first\nlast\n"));
+		}
+		TEST_METHOD(ConsiderSkippedCommandsAsFailedWidOr)
+		{
+			system("echo exist> output.txt");
+
+			auto error = Command::Execute("cd || echo foo> output.txt && del output.txt");
+			Assert::IsFalse(error.has_value());
+			std::string buf(1024, '\0');
+			HANDLE h = OpenFileForRead("output.txt");
+			DWORD read = 0;
+			BOOL res = ::ReadFile(h, buf.data(), buf.size(), &read, nullptr);
+			Assert::IsTrue(res);
+			Assert::AreEqual(0, strcmp(buf.data(), "exist\r\n"));
+
+			system("del output.txt");
+		}
+		TEST_METHOD(ConsiderSkippedCommandsAsFailedWidAnd)
+		{
+			system("echo exist> output.txt");
+
+			auto error = Command::Execute("call && echo foo> output.txt && del output.txt && echo foo> output.txt");
+			Assert::IsFalse(error.has_value());
+			std::string buf(1024, '\0');
+			HANDLE h = OpenFileForRead("output.txt");
+			DWORD read = 0;
+			BOOL res = ::ReadFile(h, buf.data(), buf.size(), &read, nullptr);
+			Assert::IsTrue(res);
+			Assert::AreEqual(0, strcmp(buf.data(), "exist\r\n"));
+
+			system("del output.txt");
+		}
+
+
+		TEST_METHOD(CurrentDirectoryShow)
+		{
+			auto error = Command::Execute("cd");
+			Assert::IsFalse(error.has_value());
+			std::string buf(1024, '\0');
+			DWORD read = 0;
+			BOOL res = ::ReadFile(pipeStdOutRead, buf.data(), buf.size(), &read, nullptr);
+			Assert::IsTrue(res);
+			std::string currentDir(4096, '\0');
+			DWORD len = ::GetCurrentDirectoryA(currentDir.size(), currentDir.data());
+			Assert::AreEqual(0, strncmp(buf.data(), currentDir.data(), len));
+		}
 	};
 }

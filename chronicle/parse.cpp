@@ -2,6 +2,8 @@
 #include <vector>
 #include <string>
 #include "result.h"
+#include "stringutil.h"
+
 
 namespace Command
 {
@@ -16,6 +18,7 @@ namespace Command
 	// Parsing context 
 	enum class Context
 	{
+		Initial,
 		Command,
 		Operator,
 		File,
@@ -47,11 +50,12 @@ namespace Command
 			return { std::nullopt, err };
 		}
 		std::vector<Node> result;
-		Context context = Context::Command;
+		Context context = Context::Initial;
 
 		for (auto& token : *tokens) {
 			switch (context)
 			{
+				case Context::Initial:
 				case Context::Command:
 				{
 					if (token.type != TokenType::Text) {
@@ -87,7 +91,7 @@ namespace Command
 					if (token.type != TokenType::Text) {
 						return { std::nullopt, Error(ERROR_INVALID_FUNCTION, token.data + " was unexpected at this time.") };
 					}
-					result.push_back({ NodeType::Command, "", "", token.data, "" });
+					result.push_back({ NodeType::File, "", "", StringUtil::Trim(token.data), "" });
 					context = Context::Operator;
 					continue;
 					break;
@@ -101,6 +105,9 @@ namespace Command
 					return { std::nullopt, Error(ERROR_INVALID_FUNCTION, "LogicalError Parse@parse.cpp") };
 				}
 			}
+		}
+		if (context == Context::Command || context == Context::File) {
+			return { std::nullopt, Error(ERROR_INVALID_FUNCTION, "The syntax of the command is incorrect.") };
 		}
 		result.push_back({ NodeType::End, "", "", "", "" });
 		return { result, std::nullopt };
