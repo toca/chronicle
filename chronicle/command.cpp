@@ -50,6 +50,7 @@ namespace Command
 	// OpenPipe for |
 	Result<Pipe> OpenPipe();
 	// Bulk close pipes
+	// TODO Remove
 	void ClosePipesRead(const std::vector<Pipe>& pipes);
 	void ClosePipesWrite(const std::vector<Pipe>& pipes);
 	Result<StdHandles> DuplicateStdHandles();
@@ -57,10 +58,11 @@ namespace Command
 	// | pipeline | pipeline | ...
 	std::vector<std::vector<Command::Node>> SplitToPipeline(const std::vector<Command::Node>& nodes);
 	// split by & or && or ||
-	std::vector<std::vector<Command::Node>> SplitByExecutionFlowOperator(const std::vector<Command::Node>& nodes);
+	std::vector<std::vector<Command::Node>> SplitByFlowOperator(const std::vector<Command::Node>& nodes);
 	// split by |
 	std::vector<std::vector<Command::Node>> SplitByPipeOperator(const std::vector<Command::Node>& nodes);
 
+	// TODO Remove
 	Result<DWORD> ExecuteCommand(const std::vector<Command::Node>& nodes, HANDLE inHandle, HANDLE outHandle, HANDLE errHandle);
 
 	Result<ProcessIoHandle> AsyncExecuteCommand(const std::vector<Command::Node>& nodes, HANDLE inHandle, HANDLE outHandle, HANDLE errHandle);
@@ -69,9 +71,14 @@ namespace Command
 
 	std::string GetErrorMessage(DWORD code);
 
+	bool IsFlowOperator(const Node& node);
 
 
 
+
+	/*
+	* FlowOperator = "&" | "&& " | "||"
+	*/
 	OptionalError Execute(const std::string& input)
 	{
 		// TODO
@@ -91,18 +98,29 @@ namespace Command
 		DWORD exitCode = 0;
 
 		for (auto& pipeline : SplitToPipeline(*nodes)) {
-			Status status = Status::Nothing;
 			// execution-unit ::= command | command pipe execution-unit | command redirection pipe execution-unit
 			// redirection ::= redirector file | redirectior file redirection
 			// redirector  ::= ">" | ">>" | "<"
 			// pipe ::= "|"
-			auto combinedCommands = SplitByExecutionFlowOperator(pipeline);
+
+			auto combinedCommands = SplitByFlowOperator(pipeline);
 			for (auto combinedCommand = combinedCommands.begin(); combinedCommand != combinedCommands.end(); combinedCommand++) {
 				
 				auto executionUnits = SplitByPipeOperator(*combinedCommand);
+				
+				Status status = Status::Nothing;
 				std::vector<ProcessIoHandle> processes;
 				std::optional<Pipe> prevPipe = std::nullopt;
 				
+				// commands e.g.
+				//   {
+				//      { cd },
+				//      { echo hello world },
+				//      { dir | },
+				//      { findstr b | }
+				//      { echo hello file > filename.txt && }
+				//   }
+				//  
 				for (auto commands = executionUnits.begin(); commands != executionUnits.end(); commands++) {
 					// handles for child process
 					auto [handles, err] = DuplicateStdHandles();
@@ -125,9 +143,9 @@ namespace Command
 						prevPipe = pipe;
 					}
 	
-
+					
 					if (commands + 1 != executionUnits.end()) {
-						// mid
+						// left
 						auto [process, err] = AsyncExecuteCommand(*commands, handles->in, handles->out, handles->err);
 						if (err) {
 							return err;
@@ -135,7 +153,7 @@ namespace Command
 						processes.push_back(*process);
 					}
 					else {
-						// at last
+						// at last ----
 						auto [process, err] = AsyncExecuteCommand(*commands, handles->in, handles->out, handles->err);
 						if (err) {
 							return err;
@@ -167,7 +185,35 @@ namespace Command
 						if (exitCode != ERROR_SUCCESS) {
 							ShowError(exitCode, handles->err);
 						}
+
+						// last がいいのだろうか。最後のリストの最後のノードはオペレーターかもしれない
+						|| IsFlowOperator(*(commands + 1)
 					}
+
+				}
+			
+
+				// check operator
+				switch (combinedCommand->back().type)
+				{
+				case NodeType::And:
+					// "&&" operator
+					if (status == Status::Failure) {
+						continue;
+					}
+					break;
+				case NodeType::Or:
+					// "||" operator
+					if (status == Status::Success) {
+						continue;
+					}
+					break;
+				case NodeType::Separator:
+					// "&" operator
+					break;
+				default:
+					break;
+					//return Error(ERROR_INVALID_FUNCTION, "LogicalError Execute@command.cpp");
 				}
 			}
 			
@@ -196,7 +242,7 @@ namespace Command
 	}
 
 
-	std::vector<std::vector<Command::Node>> SplitByExecutionFlowOperator(const std::vector<Command::Node>& nodes)
+	std::vector<std::vector<Command::Node>> SplitByFlowOperator(const std::vector<Command::Node>& nodes)
 	{
 		// -- result --
 		// {
@@ -209,8 +255,8 @@ namespace Command
 		std::vector<Command::Node> chunk{};
 		for (auto& node : nodes) {
 			if (node.type == NodeType::And || node.type == NodeType::Separator || node.type == NodeType::Or) {
+				chunk.push_back({ node });
 				result.push_back(chunk);
-				result.push_back({ node });
 				chunk = {}; // renew
 			}
 			else {
@@ -318,12 +364,13 @@ namespace Command
 			}
 		}
 		auto proc = std::make_shared<Process>(command.command, command.arguments, inHandle, outHandle, errHandle);
-		// important
+		auto startErr = proc->Start();
+		
+		// Need to close before start next process. It makes input handle will close correctly.
 		::CloseHandle(inHandle);
 		::CloseHandle(outHandle);
 		::CloseHandle(errHandle);
 
-		auto startErr = proc->Start();
 		if (startErr) return { std::nullopt, startErr };
 		return { ProcessIoHandle{ proc, handles }, std::nullopt };
 	}
@@ -509,4 +556,11 @@ namespace Command
 		return { StdHandles{ in, out, err}, std::nullopt };
 
 	}
+
+	bool IsFlowOperator(const Node& node)
+	{
+		return (node.type == NodeType::Separator || node.type == NodeType::And || node.type == NodeType::Or);
+	}
+
+
 }

@@ -28,8 +28,10 @@ Process::Process(const std::string& cmd, const std::string& arg, HANDLE in, HAND
 
 Process::~Process()
 {
-	::CloseHandle(this->processInfo.hProcess);
-	::CloseHandle(this->processInfo.hThread);
+	if (this->type == Type::EXTERNAL) {
+		::CloseHandle(this->processInfo.hProcess);
+		::CloseHandle(this->processInfo.hThread);
+	}
 }
 
 
@@ -39,6 +41,45 @@ OptionalError Process::Start()
 	if (type == Type::EXTERNAL) {
 		this->Create();
 		return std::nullopt;
+	}
+	else {
+		/*BOOL res = ::DuplicateHandle(
+			::GetCurrentProcess(),
+			this->input,
+			::GetCurrentProcess(),
+			&this->input,
+			0,
+			TRUE,
+			DUPLICATE_SAME_ACCESS | DUPLICATE_CLOSE_SOURCE
+		);
+		if (!res) {
+			return Error(::GetLastError(), "Failed to DuplicateHandle Start@process.cpp");
+		}
+		res = ::DuplicateHandle(
+			::GetCurrentProcess(),
+			this->output,
+			::GetCurrentProcess(),
+			&this->output,
+			0,
+			TRUE,
+			DUPLICATE_SAME_ACCESS | DUPLICATE_CLOSE_SOURCE
+		);
+		if (!res) {
+			return Error(::GetLastError(), "Failed to DuplicateHandle Start@process.cpp");
+		}
+		res = ::DuplicateHandle(
+			::GetCurrentProcess(),
+			this->error,
+			::GetCurrentProcess(),
+			&this->error,
+			0,
+			TRUE,
+			DUPLICATE_SAME_ACCESS | DUPLICATE_CLOSE_SOURCE
+		);
+		if (!res) {
+			return Error(::GetLastError(), "Failed to DuplicateHandle Start@process.cpp");
+		}*/
+		
 	}
 
 	switch (type)
@@ -132,6 +173,13 @@ Result<DWORD> Process::WaitForExit()
 		if (!::GetExitCodeProcess(this->processInfo.hProcess, &(this->exitCode))) {
 			auto err = ::GetLastError();
 			return { std::nullopt, Error(err, "Failed to ::GetExitCodeProcess WaitForExit@process.cpp") };
+		}
+	}
+	else {
+		if (this->type != Type::EXTERNAL) {
+			//::CloseHandle(this->input);
+			//::CloseHandle(this->output);
+			//::CloseHandle(this->error);
 		}
 	}
 	return { exitCode, std::nullopt };

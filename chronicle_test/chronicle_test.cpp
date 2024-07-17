@@ -542,7 +542,7 @@ namespace chronicletest
 			Assert::IsTrue(res);
 			Assert::AreEqual(0, strcmp(buf.data(), "first\nlast\n"));
 		}
-		TEST_METHOD(ConsiderSkippedCommandsAsFailedWidOr)
+		TEST_METHOD(ConsiderSkippedCommandsAsFailedWithOr)
 		{
 			system("echo exist> output.txt");
 
@@ -557,11 +557,11 @@ namespace chronicletest
 
 			system("del output.txt");
 		}
-		TEST_METHOD(ConsiderSkippedCommandsAsFailedWidAnd)
+		TEST_METHOD(ConsiderSkippedCommandsAsFailedWithAnd)
 		{
 			system("echo exist> output.txt");
 
-			auto error = Command::Execute("call && echo foo> output.txt && del output.txt && echo foo> output.txt");
+			auto error = Command::Execute("xcopy && echo foo> output.txt && del output.txt && echo foo> output.txt");
 			Assert::IsFalse(error.has_value());
 			std::string buf(1024, '\0');
 			HANDLE h = OpenFileForRead("output.txt");
