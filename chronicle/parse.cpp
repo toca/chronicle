@@ -26,6 +26,7 @@ namespace Command
 	};
 
 	/*
+		FIXME
 		<command-sequence>  ::= <command> | <command> <operator> <command-sequence> | <marge> <command-sequence> |
 		<command>           ::= <executable> <arguments> | <executable> <arguments> <redirections>
 		<redirections>      ::= <redirector> <file> | <redirector> <file> <redirections>
@@ -45,6 +46,7 @@ namespace Command
 	*/
 	Result<std::vector<Node>> Parse(const std::string& input)
 	{
+		// TODO Expand Environment Variables at first.
 		auto [tokens, err] = Tokenize(input.c_str());
 		if (err) {
 			return { std::nullopt, err };

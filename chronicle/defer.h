@@ -15,6 +15,6 @@ DeferStruct<F> CreateDefer(F f) {
 #define CAT(x, y)         x##y
 #define CALL_CAT(x, y)    CAT(x, y)
 #define ADD_COUNTER(x)    CALL_CAT(x, __COUNTER__)
-#define DEFER(f)       auto ADD_COUNTER(_defer_) = DeferStruct(f)
+#define DEFER(...)       auto ADD_COUNTER(_defer_) = DeferStruct(__VA_ARGS__)
 // DEFER(f) -> audo _defer_1 = DefStruct(f)
 // end defer

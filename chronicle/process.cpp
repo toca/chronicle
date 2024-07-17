@@ -164,7 +164,9 @@ void Process::Create()
 		&startupInfo,
 		&this->processInfo
 	);
-	this->exitCode = ::GetLastError();
+	if (!res) {
+		this->exitCode = ::GetLastError();
+	}
 }
 
 

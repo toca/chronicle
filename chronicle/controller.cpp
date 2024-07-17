@@ -73,8 +73,9 @@ void Controller::Down()
 void Controller::Enter()
 {
 	auto err = Command::Execute(inputBuffer->GetCommand());
+	// TODO new line?
 	if (err) {
-		printf("%s: %d\n", err->message.c_str(), err->code);
+		fprintf(stderr, "%s: %d\n", err->message.c_str(), err->code);
 		// show error in Command or View
 	}
 	this->inputBuffer->ClearInput();
