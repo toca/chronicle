@@ -27,20 +27,23 @@
     <ClCompile Include="..\chronicle\history.cpp">
       <Filter>targets</Filter>
     </ClCompile>
-    <ClCompile Include="..\chronicle\parse.cpp">
-      <Filter>ソース ファイル</Filter>
+    <ClCompile Include="..\chronicle\process.cpp">
+      <Filter>targets</Filter>
     </ClCompile>
     <ClCompile Include="..\chronicle\stringutil.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="..\chronicle\command.cpp">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
-    <ClCompile Include="..\chronicle\process.cpp">
-      <Filter>ソース ファイル</Filter>
+      <Filter>targets</Filter>
     </ClCompile>
     <ClCompile Include="..\chronicle\internalcommand.cpp">
-      <Filter>ソース ファイル</Filter>
+      <Filter>targets</Filter>
+    </ClCompile>
+    <ClCompile Include="..\chronicle\command.cpp">
+      <Filter>targets</Filter>
+    </ClCompile>
+    <ClCompile Include="..\chronicle\tokenize.cpp">
+      <Filter>targets</Filter>
+    </ClCompile>
+    <ClCompile Include="..\chronicle\parser.cpp">
+      <Filter>targets</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -48,6 +51,12 @@
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="..\chronicle\history.h">
+      <Filter>targets</Filter>
+    </ClInclude>
+    <ClInclude Include="..\chronicle\node.h">
+      <Filter>targets</Filter>
+    </ClInclude>
+    <ClInclude Include="..\chronicle\tokenize.h">
       <Filter>targets</Filter>
     </ClInclude>
   </ItemGroup>

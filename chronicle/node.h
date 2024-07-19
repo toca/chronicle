@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 #include <string>
-#include "result.h" 
+#include <memory>
 
 namespace Command
 {
@@ -15,11 +15,11 @@ namespace Command
 		/* | */
 		Pipe,
 		/* < */
-		Input,
+		//Input,
 		/* > */
-		Redirect,
+		//Redirect,
 		/* >> */
-		Append,
+		//Append,
 		/* && */
 		And,
 		/* || */
@@ -32,26 +32,30 @@ namespace Command
 		End
 	};
 
-	struct Node
+	struct Redirection 
 	{
-		NodeType type;
-		std::string command;
-		std::string arguments;
+		Redirection(const std::string file, const std::string op)
+			: file(file)
+			, op(op)
+		{}
 		std::string file;
 		std::string op;
 	};
 
-	enum class TokenType
+	struct Node
 	{
-		Text,
-		Operator
+	public:
+		Node(NodeType type)
+			: type(type)
+		{}
+
+		NodeType type;
+		std::unique_ptr<Node> left;
+		std::unique_ptr<Node> right;
+		std::string command = "";
+		std::string arguments = "";
+		std::string file = "";
+		std::string op = "";
+		std::vector<Redirection> redirections = {};
 	};
-
-	struct Token {
-		TokenType type;
-		std::string data;
-	};
-
-	Result<std::vector<Node>> Parse(const std::string& input);
-};
-
+}
