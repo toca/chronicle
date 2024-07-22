@@ -7,6 +7,7 @@
 #include <vector>
 #include <cctype>
 
+#include "tokenize.h"
 #include "parser.h"
 #include "error.h"
 #include "result.h"
@@ -16,32 +17,12 @@
 
 namespace Command
 {
+	// PipeHandle read, write
 	struct Pipe
 	{
 		HANDLE toWrite;
 		HANDLE toRead;
 	};
-
-	struct ProcessIoHandle
-	{
-		std::shared_ptr<Process> proc;
-		std::vector<HANDLE> handles;
-	};
-
-	struct StdHandles
-	{
-		HANDLE in;
-		HANDLE out;
-		HANDLE err;
-	};
-
-	enum class Status
-	{
-		Nothing,
-		Success,
-		Failure
-	};
-
 
 	// OpenFile for > or >>
 	Result<HANDLE> OpenFileForWrite(const std::string& path, bool append);
@@ -49,23 +30,15 @@ namespace Command
 	Result<HANDLE> OpenFileForRead(const std::string& path);
 	// OpenPipe for |
 	Result<Pipe> OpenPipe();
-	// Bulk close pipes
-	// TODO Remove
-	void ClosePipesRead(const std::vector<Pipe>& pipes);
-	void ClosePipesWrite(const std::vector<Pipe>& pipes);
-	Result<StdHandles> DuplicateStdHandles();
 
-	//// | pipeline | pipeline | ...
-	//std::vector<std::vector<Command::Node>> SplitToPipeline(const std::vector<Command::Node>& nodes);
-	//// split by & or && or ||
-	//std::vector<std::vector<Command::Node>> SplitByFlowOperator(const std::vector<Command::Node>& nodes);
-	//// split by |
-	//std::vector<std::vector<Command::Node>> SplitByPipeOperator(const std::vector<Command::Node>& nodes);
+	// command && command
+	Result<DWORD> ExecuteCommandSequence(std::shared_ptr<Node> node);
 
-	// TODO Remove
-	//Result<DWORD> ExecuteCommand(const std::vector<Command::Node>& nodes, HANDLE inHandle, HANDLE outHandle, HANDLE errHandle);
+	// command | command
+	Result<DWORD> ExecuteCombinedCommand(std::shared_ptr<Node> node);
 
-	//Result<ProcessIoHandle> AsyncExecuteCommand(const std::vector<Command::Node>& nodes, HANDLE inHandle, HANDLE outHandle, HANDLE errHandle);
+	// command > file
+	std::tuple<std::shared_ptr<Process>, OptionalError> AsyncExecuteCommand(std::shared_ptr<Node> node, HANDLE inHandle, HANDLE outHandle, HANDLE errHandle);
 
 	void ShowError(DWORD code, HANDLE handle);
 
@@ -76,9 +49,6 @@ namespace Command
 
 
 
-	/*
-	* FlowOperator = "&" | "&& " | "||"
-	*/
 	OptionalError Execute(const std::string& input)
 	{
 		//// TODO
@@ -86,11 +56,31 @@ namespace Command
 		//// * Error handling and show error message.
 		//// * 2>&1
 		//// * return exit code
-		//auto [nodes, err] = ParseOLD(input);
-		//if (err) {
-		//	//fprintf(stderr, "The syntax of the command is incorrect.");
-		//	return Error(err->code, "The syntax of the command is incorrect.");
-		//}
+		auto [tokens, tokenErr] = Tokenize(input);
+		if (tokenErr) {
+			return tokenErr;
+		}
+
+		Parser parser(*tokens);
+		auto [node, parseErr] = parser.Parse();
+		if (parseErr) {
+			return parseErr;
+		}
+		
+		/*auto [handles, handlEerr] = DuplicateStdHandles();
+		if (handleErr) {
+			return handleErr;
+		}*/
+		auto [code, execErr] = ExecuteCommandSequence(node);
+		/*if (node->type == NodeType::Command) {
+			auto [proc, err] = AsyncExecuteCommand(node, handles->in, handles->out, handles->err);
+			if (err) {
+				return err;
+			}
+			auto [exitCode, waitErr] = proc->proc->WaitForExit();
+
+		}*/
+
 
 		//// TODO split to block
 		//// echo foo > file | cat  = echo foo | cat
@@ -102,7 +92,7 @@ namespace Command
 		//	// redirection ::= redirector file | redirectior file redirection
 		//	// redirector  ::= ">" | ">>" | "<"
 		//	// pipe ::= "|"
-
+		//
 		//	auto combinedCommands = SplitByFlowOperator(pipeline);
 		//	for (auto combinedCommand = combinedCommands.begin(); combinedCommand != combinedCommands.end(); combinedCommand++) {
 		//		
@@ -127,13 +117,13 @@ namespace Command
 		//			if (err) {
 		//				return err;
 		//			}
-
+		//
 		//			// input
 		//			if (prevPipe) {
 		//				::CloseHandle(handles->in);
 		//				handles->in = prevPipe->toRead;
 		//			}
-
+		//
 		//			// output and next input
 		//			if (commands->back().type == NodeType::Pipe) {
 		//				auto [pipe, pipeErr] = OpenPipe();
@@ -142,7 +132,7 @@ namespace Command
 		//				handles->out = pipe->toWrite;
 		//				prevPipe = pipe;
 		//			}
-	
+		//
 		//			
 		//			if (commands + 1 != executionUnits.end()) {
 		//				// left
@@ -158,7 +148,7 @@ namespace Command
 		//				if (err) {
 		//					return err;
 		//				}
-
+		//
 		//				// wait for exit processes
 		//				for (auto& each : processes) {
 		//					auto [code, err] = each.proc->WaitForExit();
@@ -178,19 +168,19 @@ namespace Command
 		//				for (auto& h : process->handles) {
 		//					::CloseHandle(h);
 		//				}
-
-	
+		//
+		//
 		//				exitCode = *code;
 		//				status = exitCode == ERROR_SUCCESS ? Status::Success : Status::Failure;
 		//				if (exitCode != ERROR_SUCCESS) {
 		//					ShowError(exitCode, handles->err);
 		//				}
-
+		//
 		//			}
-
+		//
 		//		}
 		//	
-
+		//
 		//		// check operator
 		//		switch (combinedCommand->back().type)
 		//		{
@@ -220,160 +210,196 @@ namespace Command
 		return std::nullopt;
 	}
 
-	//std::vector<std::vector<Command::Node>> SplitToPipeline(const std::vector<Command::Node>& nodes)
-	//{
-	//	std::vector<std::vector<Command::Node>> result{};
-	//	std::vector<Command::Node> pipeline{};
-	//	for (auto& node : nodes) {
-	//		/*if (node.type == NodeType::Pipe) {
-	//			result.push_back(pipeline);
-	//			pipeline = {};
-	//		}
-	//		else {*/
-	//			pipeline.push_back(node);
-	//		//}
-	//	}
-	//	if (0 < pipeline.size()) {
-	//		result.push_back(pipeline);
-	//	}
-	//	return result;
-	//}
+
+	Result<DWORD> ExecuteCommandSequence(std::shared_ptr<Node> node)
+	{
+		return ExecuteCombinedCommand(node);
+		/*switch (node->type)
+		{
+		case NodeType::And:
+
+			break;
+		}*/
+		return { 0, std::nullopt };
+	}
 
 
-	//std::vector<std::vector<Command::Node>> SplitByFlowOperator(const std::vector<Command::Node>& nodes)
-	//{
-	//	// -- result --
-	//	// {
-	//	//   { "commandA",  "|",  "commandB",  "&&" },
-	//	//   { "commandC",  ">",  "fileD",     "&"  },
-	//	//   { "commandE",  "<",  "fileF",     "|"  },
-	//	//   { "commandG"                           }
-	//	// }
-	//	std::vector<std::vector<Command::Node>> result{};
-	//	std::vector<Command::Node> chunk{};
-	//	for (auto& node : nodes) {
-	//		if (node.type == NodeType::And || node.type == NodeType::Separator || node.type == NodeType::Or) {
-	//			chunk.push_back({ node });
-	//			result.push_back(chunk);
-	//			chunk = {}; // renew
-	//		}
-	//		else {
-	//			chunk.push_back(node);
-	//		}
-	//	}
-	//	if (0 < chunk.size()) {
-	//		result.push_back(chunk);
-	//	}
-	//	return result;
-	//}
+	Result<DWORD> ExecuteCombinedCommand(std::shared_ptr<Node> node)
+	{
+		// collect command
+		std::vector<std::shared_ptr<Node>> commands{};
+		auto current = node;
+		while (true) {
+			if (current->type != NodeType::Pipe && current->type != NodeType::Command) {
+				return { std::nullopt, Error(ERROR_INVALID_FUNCTION, "Unexpected NodeType ExecuteBombinedCommand@command") };
+			}
+
+			// NodeType::Command
+			if (current->type == NodeType::Command) {
+				commands.push_back(current);
+				break;
+			}
+			// NodeType::Pipe
+			if (!current->left || current->left->type != NodeType::Command) {
+				return { std::nullopt, Error(ERROR_INVALID_FUNCTION, "Unexpected NodeType ExecuteBombinedCommand@command") };
+			}
+			commands.push_back(current->left);
+			current = current->right;
+		}
+
+		HANDLE inHandle = ::GetStdHandle(STD_INPUT_HANDLE);
+		HANDLE outHandle = ::GetStdHandle(STD_OUTPUT_HANDLE);
+		HANDLE errHandle = ::GetStdHandle(STD_ERROR_HANDLE);
+
+		// Specialization of Single Command
+		if (commands.size() == 1) {
+			auto [process, executeErr] = AsyncExecuteCommand(commands.at(0), inHandle, outHandle, errHandle);
+			if (executeErr) {
+				return { std::nullopt, executeErr };
+			}
+			auto [code, err] = process->WaitForExit();
+			if (err) {
+				return { std::nullopt, err };
+			}
+			return { *code, std::nullopt };
+		}
 
 
-	//std::vector<std::vector<Command::Node>> SplitByPipeOperator(const std::vector<Command::Node>& nodes)
-	//{
-	//	// -- result --
-	//	// {
-	//	//   { "commandA",  ">",  "fileB",  "|" },
-	//	//   { "commandC",  "<",  "fileD",  "|" },
-	//	//   { "commandE",  ">",  "fileF",  "<",  "FileG",  "|"  },
-	//	//   { "commandG" }
-	//	// }
-	//	std::vector<std::vector<Command::Node>> result{};
-	//	std::vector<Command::Node> chunk{};
-	//	for (auto& node : nodes) {
-	//		if (node.type == NodeType::Pipe) {
-	//			chunk.push_back(node);
-	//			result.push_back(chunk);
-	//			chunk = {}; // renew
-	//		}
-	//		else {
-	//			chunk.push_back(node);
-	//		}
-	//	}
-	//	if (0 < chunk.size()) {
-	//		result.push_back(chunk);
-	//	}
-	//	return result;
-	//}
+		// Execute Commands
+		std::vector<std::shared_ptr<Process>> processes{};
+		std::optional<Pipe> prevPipe = std::nullopt;
 
-	
-	//Result<DWORD> ExecuteCommand(const std::vector<Command::Node>& nodes, HANDLE inHandle, HANDLE outHandle, HANDLE errHandle)
-	//{
-	//	std::vector<HANDLE> handles{};
-	//	DEFER([&handles]() 
-	//		{
-	//			for (HANDLE& handle : handles) {
-	//				::OutputDebugStringA("CloseHandles\n");
-	//				::CloseHandle(handle);
-	//			}
-	//		}
-	//	);
-	//	//Node command = nodes.at(0);
-	//	/*for (size_t i = 1; i < nodes.size(); i++) {
-	//		if (nodes.at(i).type == NodeType::Redirect) {
-	//			auto [handle, err] = OpenFileForWrite(nodes.at(i + 1).file, false);
-	//			if (err) return { std::nullopt, err };
-	//			handles.push_back(*handle);
-	//			outHandle = *handle;
-	//		}
-	//		else if (nodes.at(i).type == NodeType::Append) {
-	//			auto [handle, err] = OpenFileForWrite(nodes.at(i + 1).file, true);
-	//			if (err) return { std::nullopt, err };
-	//			handles.push_back(*handle);
-	//			outHandle = *handle;
-	//		}
-	//		else if (nodes.at(i).type == NodeType::Input) {
-	//			auto [handle, err] = OpenFileForRead(nodes.at(i + 1).file);
-	//			if (err) return { std::nullopt, err };
-	//			handles.push_back(*handle);
-	//			inHandle = *handle;
-	//		}
-	//	}*/
-	//	//Process p(command.command, command.arguments, inHandle, outHandle, errHandle);
-	//	//auto startErr = p.Start();
-	//	//if (startErr) return { std::nullopt, startErr };
-	//	//auto [code, waitErr] = p.WaitForExit();
-	//	//if (waitErr) return { std::nullopt, waitErr };
-	//	//return { *code, std::nullopt };
-	//	return { 0, std::nullopt };
-	//}
+		// First Command
+		{
+			auto [pipe, pipeErr] = OpenPipe();
+			if (pipeErr) {
+				return { std::nullopt, pipeErr };
+			}
+			auto [proc, executeErr] = AsyncExecuteCommand(commands.front(), inHandle, pipe->toWrite, errHandle);
+			if (executeErr) {
+				return { std::nullopt, executeErr };
+			}
+			::CloseHandle(pipe->toWrite);
+			processes.push_back(proc);
+			prevPipe = pipe;
+		}
+
+		// Middle
+		for (size_t i = 1; i < commands.size() - 1; i++) {
+			// pipe
+			auto [pipe, pipeErr] = OpenPipe();
+			if (pipeErr) {
+				return { std::nullopt, pipeErr };
+			}
+			
+			// check
+			if (!prevPipe) {
+				return { std::nullopt, Error(ERROR_INVALID_FUNCTION, "LogicalError ExecuteBombinedCommand@command")};
+			}
+
+			// Execute
+			auto [proc, executeErr] = AsyncExecuteCommand(commands.at(i), prevPipe->toRead, pipe->toWrite, errHandle);
+			if (executeErr) {
+				return { std::nullopt, executeErr };
+			}
+			::CloseHandle(prevPipe->toRead);
+			::CloseHandle(pipe->toWrite);
+			processes.push_back(proc);
+			prevPipe = pipe;
+		}
+
+		// Last
+		{
+			auto [proc, executeErr] = AsyncExecuteCommand(commands.back(), prevPipe->toRead, outHandle, errHandle);
+			if (executeErr) {
+				return { std::nullopt, executeErr };
+			}
+			::CloseHandle(prevPipe->toRead);
+			processes.push_back(proc);
+		}
+
+		// wait for exit processes
+		DWORD exitCode = 0;
+		for (auto& proc : processes) {
+			auto [code, err] = proc->WaitForExit();
+			if (err) {
+				return { std::nullopt, err };
+			}
+			exitCode = *code;
+		}
+		return { exitCode,  std::nullopt };		
+	}
 
 
-	//Result<ProcessIoHandle> AsyncExecuteCommand(const std::vector<Command::Node>& nodes, HANDLE inHandle, HANDLE outHandle, HANDLE errHandle)
-	//{
-	//	std::vector<HANDLE> handles{};
-	//	//Node command = nodes.at(0);
-	//	/*for (size_t i = 1; i < nodes.size(); i++) {
-	//		if (nodes.at(i).type == NodeType::Redirect) {
-	//			auto [handle, err] = OpenFileForWrite(nodes.at(i + 1).file, false);
-	//			if (err) return { std::nullopt, err };
-	//			handles.push_back(*handle);
-	//			outHandle = *handle;
-	//		}
-	//		else if (nodes.at(i).type == NodeType::Append) {
-	//			auto [handle, err] = OpenFileForWrite(nodes.at(i + 1).file, true);
-	//			if (err) return { std::nullopt, err };
-	//			handles.push_back(*handle);
-	//			outHandle = *handle;
-	//		}
-	//		else if (nodes.at(i).type == NodeType::Input) {
-	//			auto [handle, err] = OpenFileForRead(nodes.at(i + 1).file);
-	//			if (err) return { std::nullopt, err };
-	//			handles.push_back(*handle);
-	//			inHandle = *handle;
-	//		}
-	//	}*/
-	//	//auto proc = std::make_shared<Process>(command.command, command.arguments, inHandle, outHandle, errHandle);
-	//	//auto startErr = proc->Start();
-	//	//
-	//	//// Need to close before start next process. It makes input handle will close correctly.
-	//	//::CloseHandle(inHandle);
-	//	//::CloseHandle(outHandle);
-	//	//::CloseHandle(errHandle);
+	std::tuple<std::shared_ptr<Process>, OptionalError> AsyncExecuteCommand(std::shared_ptr<Node> node, HANDLE inHandle, HANDLE outHandle, HANDLE errHandle)
+	{
+		std::vector<HANDLE> handles{};
+		std::string inFile = "";
+		std::string outFile = "";
+		std::string errFile = "";
+		bool outAppend = false;
+		bool errAppend = false;
+		for (auto& redirect : node->redirections) {
+			if (redirect.op == "<") {
+				inFile = redirect.file;
+			}
+			else if (redirect.op == ">") {
+				outFile = redirect.file;
+				outAppend = false;
+			}
+			else if (redirect.op == ">>") {
+				outFile = redirect.file;
+				outAppend = true;
+			}
+			else if (redirect.op == "1>") {
+				outFile = redirect.file;
+				outAppend = false;
+			}
+			else if (redirect.op == "1>>") {
+				outFile = redirect.file;
+				outAppend = true;
+			}
+			else if (redirect.op == "2>") {
+				errFile = redirect.file;
+				errAppend = false;
 
-	//	//if (startErr) return { std::nullopt, startErr };
-	//	//return { ProcessIoHandle{ proc, handles }, std::nullopt };
-	//	return { std::nullopt, std::nullopt };
-	//}
+			}
+			else if (redirect.op == "2>>") {
+				errFile = redirect.file;
+				errAppend = true;
+			}
+		}
+		if (!inFile.empty()) {
+			auto [handle, err] = OpenFileForRead(inFile);
+			if (err) return { nullptr, err };
+			handles.push_back(*handle);
+			inHandle = *handle;
+		}
+		if (!outFile.empty()) {
+			auto [handle, err] = OpenFileForWrite(outFile, outAppend);
+			if (err) return { nullptr, err };
+			handles.push_back(*handle);
+			outHandle = *handle;
+		}
+		if (!errFile.empty()) {
+			auto [handle, err] = OpenFileForWrite(errFile, errAppend);
+			if (err) return { nullptr, err };
+			handles.push_back(*handle);
+			outHandle = *handle;
+		}
+
+		auto proc = std::make_shared<Process>(node->command, node->arguments, inHandle, outHandle, errHandle);
+		auto startErr = proc->Start();
+		
+		// After passing the handle to the process, the handle is no longer needed, so close it.
+		// Need to close before start next process. It makes input handle will close correctly.
+		for (auto& each : handles) {
+			::CloseHandle(each);
+		}
+
+		if (startErr) return { nullptr, startErr };
+		return { proc, std::nullopt };
+	}
 
 
 	Result<HANDLE> OpenFileForWrite(const std::string& path, bool append) {
@@ -408,12 +434,12 @@ namespace Command
 		);
 		if (h == INVALID_HANDLE_VALUE) {
 			auto err = ::GetLastError();
-			return { std::nullopt, Error(err, "Failed to CreateFile OpenFileForWrite@command.cpp") };
+			return { std::nullopt, Error(err, "Failed to CreateFile OpenFileForWrite@command") };
 		}
 		if (append) {
 			if (::SetFilePointer(h, 0, nullptr, FILE_END) == INVALID_SET_FILE_POINTER){
 				auto err = ::GetLastError();
-				return { std::nullopt, Error(err, "Failed to ::SetFilePointer OpenFileForWrite@command.cpp") };
+				return { std::nullopt, Error(err, "Failed to ::SetFilePointer OpenFileForWrite@command") };
 			}
 		}
 		return { h, std::nullopt };
@@ -442,7 +468,7 @@ namespace Command
 		);
 		if (h == INVALID_HANDLE_VALUE) {
 			auto err = ::GetLastError();
-			return { std::nullopt, Error(err, "Failed to CreateFile OpenFileForRead@command.cpp") };
+			return { std::nullopt, Error(err, "Failed to CreateFile OpenFileForRead@command") };
 		}
 		return { h, std::nullopt };
 	}
@@ -457,8 +483,8 @@ namespace Command
 
 		HANDLE read{};
 		HANDLE write{};
-		if (!::CreatePipe(&read, &write, &security, 0)) {
-			return { std::nullopt, Error(::GetLastError(),  "Failed to ::CreatePipe OpenPipe@command.cpp") };
+		if (!::CreatePipe(&read, &write, & security, 0)) {
+			return { std::nullopt, Error(::GetLastError(),  "Failed to ::CreatePipe OpenPipe@command") };
 		}
 
 		// To use handle in child proces
@@ -475,6 +501,7 @@ namespace Command
 		DWORD written = 0;
 		::WriteFile(handle, message.data(), message.size(), &written, nullptr);
 	}
+
 
 	std::string GetErrorMessage(DWORD code)
 	{
@@ -498,64 +525,6 @@ namespace Command
 		return result;
 	}
 
-	void ClosePipesRead(const std::vector<Pipe>& pipes)
-	{
-		for (auto& pipe : pipes) {
-			::CloseHandle(pipe.toRead);
-		}
-	}
-	void ClosePipesWrite(const std::vector<Pipe>& pipes)
-	{
-		for (auto& pipe : pipes) {
-			::CloseHandle(pipe.toWrite);
-		}
-	}
-
-	Result<StdHandles> DuplicateStdHandles()
-	{
-		HANDLE originalInput = ::GetStdHandle(STD_INPUT_HANDLE);
-		HANDLE originalOutput = ::GetStdHandle(STD_OUTPUT_HANDLE);
-		HANDLE originalError = ::GetStdHandle(STD_ERROR_HANDLE);
-		HANDLE in, out, err;
-		BOOL res = ::DuplicateHandle(
-			::GetCurrentProcess(),
-			originalInput,
-			::GetCurrentProcess(),
-			&in,
-			0,
-			TRUE,
-			DUPLICATE_SAME_ACCESS
-		);
-		if (!res) {
-			return { std::nullopt, Error(::GetLastError(), "Failed to DuplicateHandle DuplicateStdHandles@command.cpp") };
-		}
-		res = ::DuplicateHandle(
-			::GetCurrentProcess(),
-			originalOutput,
-			::GetCurrentProcess(),
-			&out,
-			0,
-			TRUE,
-			DUPLICATE_SAME_ACCESS
-		);
-		if (!res) {
-			return { std::nullopt, Error(::GetLastError(), "Failed to DuplicateHandle DuplicateStdHandles@command.cpp") };
-		}
-		res = ::DuplicateHandle(
-			::GetCurrentProcess(),
-			originalError,
-			::GetCurrentProcess(),
-			&err,
-			0,
-			TRUE,
-			DUPLICATE_SAME_ACCESS
-		);
-		if (!res) {
-			return { std::nullopt, Error(::GetLastError(), "Failed to DuplicateHandle DuplicateStdHandles@command.cpp") };
-		}
-		return { StdHandles{ in, out, err}, std::nullopt };
-
-	}
 
 	bool IsFlowOperator(const Node& node)
 	{

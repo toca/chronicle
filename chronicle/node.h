@@ -50,8 +50,8 @@ namespace Command
 		{}
 
 		NodeType type;
-		std::unique_ptr<Node> left;
-		std::unique_ptr<Node> right;
+		std::shared_ptr<Node> left;
+		std::shared_ptr<Node> right;
 		std::string command = "";
 		std::string arguments = "";
 		std::string file = "";

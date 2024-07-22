@@ -17,7 +17,7 @@ namespace Command
 	public:
 		Parser(const std::vector<Token>& tokens);
 		~Parser();
-		std::tuple<std::unique_ptr<Node>, OptionalError> Parse();
+		std::tuple<std::shared_ptr<Node>, OptionalError> Parse();
 	private:
 		std::vector<Token> tokens;
 		std::vector<Token>::const_iterator current;
@@ -27,9 +27,9 @@ namespace Command
 		std::optional<Token> ConsumeRedirection();
 		std::pair<std::string, std::string> SplitCommandAndArguments(const std::string& s);
 
-		std::tuple<std::unique_ptr<Node>, OptionalError> CommandSequence();
-		std::tuple<std::unique_ptr<Node>, OptionalError> CombinedCommand();
-		std::tuple<std::unique_ptr<Node>, OptionalError> Command();
+		std::tuple<std::shared_ptr<Node>, OptionalError> CommandSequence();
+		std::tuple<std::shared_ptr<Node>, OptionalError> CombinedCommand();
+		std::tuple<std::shared_ptr<Node>, OptionalError> Command();
 	};
 };
 

@@ -9,7 +9,7 @@
 
 
 // TODO setlocal, endlocal
-// 
+// cls?
 namespace InternalCommand
 {
 	// define internal functions --------------------------
@@ -145,7 +145,7 @@ namespace InternalCommand
 			SaveEachDrivePath(currentDirectory[0]);
 			::SetCurrentDirectoryA((drive + path).c_str());
 			DWORD err = ::GetLastError();
-			system(("cd " + drive + path).c_str());
+			System("cd " + drive + path, out);
 			return { err, std::nullopt };
 		}
 		else {
@@ -155,13 +155,18 @@ namespace InternalCommand
 				std::string dist = LoadEachDrivePath(drive.at(0));
 				::SetCurrentDirectoryA(dist.c_str());
 				DWORD err = ::GetLastError();
-				system(("cd /D " + dist).c_str());
+				System("cd /D " + dist, out);
 				return { err, std::nullopt };
 			}
 
 			// only show currend saved drive
 			std::string dist = LoadEachDrivePath(drive.at(0));
-			printf("%s\n", dist.c_str());
+			dist += '\n';
+			DWORD written = 0;
+			if (!::WriteFile(out, dist.c_str(), dist.size(), &written, nullptr)) {
+				DWORD err = ::GetLastError();
+				return { std::nullopt, Error(err, "Failed to ::WriteFile Cd@internalcommand") };
+			}
 			return { 0, std::nullopt };
 		}
 	}
@@ -186,6 +191,7 @@ namespace InternalCommand
 		}
 		else { // show stack
 			for (auto it = directoryStack.rbegin(); it != directoryStack.rend(); it++) {
+				// FIXME
 				printf("* \x1b[97m%s\x1b[0m\n", it->c_str());
 			}
 		}
@@ -237,6 +243,7 @@ namespace InternalCommand
 			}
 			std::string name = param.substr(0, pos);
 			std::string prompt = param.substr(pos + 1);
+			// FIXME
 			printf("%s", prompt.c_str());
 			std::string input;
 			std::getline(std::cin, input);
@@ -264,6 +271,8 @@ namespace InternalCommand
 
 	DWORD Echo(const std::string& param, HANDLE out)
 	{
+		// TODO output "ECHO is on." if empty.
+		// Use System?
 		DWORD written = 0;
 		if(::WriteFile(out, param.data(), param.size(), &written, nullptr)) {
 			if (param.size() != size_t(written)) {
@@ -336,7 +345,6 @@ namespace InternalCommand
 			nullptr,
 			nullptr,
 			TRUE,
-			//CREATE_NEW_CONSOLE,
 			0, // if 0 Ctrl + C send to each process
 			nullptr,
 			nullptr,

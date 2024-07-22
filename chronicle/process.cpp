@@ -43,42 +43,43 @@ OptionalError Process::Start()
 		return std::nullopt;
 	}
 	else {
-		/*BOOL res = ::DuplicateHandle(
-			::GetCurrentProcess(),
-			this->input,
-			::GetCurrentProcess(),
-			&this->input,
-			0,
-			TRUE,
-			DUPLICATE_SAME_ACCESS | DUPLICATE_CLOSE_SOURCE
-		);
-		if (!res) {
-			return Error(::GetLastError(), "Failed to DuplicateHandle Start@process.cpp");
-		}
-		res = ::DuplicateHandle(
-			::GetCurrentProcess(),
-			this->output,
-			::GetCurrentProcess(),
-			&this->output,
-			0,
-			TRUE,
-			DUPLICATE_SAME_ACCESS | DUPLICATE_CLOSE_SOURCE
-		);
-		if (!res) {
-			return Error(::GetLastError(), "Failed to DuplicateHandle Start@process.cpp");
-		}
-		res = ::DuplicateHandle(
-			::GetCurrentProcess(),
-			this->error,
-			::GetCurrentProcess(),
-			&this->error,
-			0,
-			TRUE,
-			DUPLICATE_SAME_ACCESS | DUPLICATE_CLOSE_SOURCE
-		);
-		if (!res) {
-			return Error(::GetLastError(), "Failed to DuplicateHandle Start@process.cpp");
-		}*/
+		// 
+		//BOOL res = ::DuplicateHandle(
+		//	::GetCurrentProcess(),
+		//	this->input,
+		//	::GetCurrentProcess(),
+		//	&this->input,
+		//	0,
+		//	TRUE,
+		//	DUPLICATE_SAME_ACCESS /*| DUPLICATE_CLOSE_SOURCE*/
+		//);
+		//if (!res) {
+		//	return Error(::GetLastError(), "Failed to DuplicateHandle Start@process.cpp");
+		//}
+		//res = ::DuplicateHandle(
+		//	::GetCurrentProcess(),
+		//	this->output,
+		//	::GetCurrentProcess(),
+		//	&this->output,
+		//	0,
+		//	TRUE,
+		//	DUPLICATE_SAME_ACCESS
+		//);
+		//if (!res) {
+		//	return Error(::GetLastError(), "Failed to DuplicateHandle Start@process.cpp");
+		//}
+		//res = ::DuplicateHandle(
+		//	::GetCurrentProcess(),
+		//	this->error,
+		//	::GetCurrentProcess(),
+		//	&this->error,
+		//	0,
+		//	TRUE,
+		//	DUPLICATE_SAME_ACCESS
+		//);
+		//if (!res) {
+		//	return Error(::GetLastError(), "Failed to DuplicateHandle Start@process.cpp");
+		//}
 		
 	}
 
@@ -176,11 +177,9 @@ Result<DWORD> Process::WaitForExit()
 		}
 	}
 	else {
-		if (this->type != Type::EXTERNAL) {
-			//::CloseHandle(this->input);
-			//::CloseHandle(this->output);
-			//::CloseHandle(this->error);
-		}
+		//::CloseHandle(this->input);
+		//::CloseHandle(this->output);
+		//::CloseHandle(this->error);
 	}
 	return { exitCode, std::nullopt };
 }

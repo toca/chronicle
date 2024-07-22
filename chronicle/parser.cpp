@@ -283,17 +283,17 @@ namespace Command
 	* <file>              ::= any string
 	* ! Merge operations like "2>&1" are treated specially. This sequence is evaluated at runtime, not at the time of parsing.
 	*/
-	std::tuple<std::unique_ptr<Node>, OptionalError> Parser::Parse()
+	std::tuple<std::shared_ptr<Node>, OptionalError> Parser::Parse()
 	{
 		auto [node, err] = this->CommandSequence();
-		return { std::move(node), err };
+		return { node, err };
 	}
 
 
 	/*
 	* <command-sequence> ::= <combined-command> | <combined-command> <operator> <command-sequence> 
 	*/
-	std::tuple<std::unique_ptr<Node>, OptionalError> Parser::CommandSequence()
+	std::tuple<std::shared_ptr<Node>, OptionalError> Parser::CommandSequence()
 	{
 		// left
 		auto [left, leftErr] = this->CombinedCommand();
@@ -304,7 +304,7 @@ namespace Command
 		// operator
 		auto token = this->ConsumeOperator();
 		if (!token) {
-			return { std::move(left), std::nullopt };
+			return { left, std::nullopt };
 		}
 
 		// own
@@ -312,7 +312,7 @@ namespace Command
 		if (typeErr) {
 			return { nullptr, typeErr };
 		}
-		auto node = std::make_unique<Node>(*type);
+		auto node = std::make_shared<Node>(*type);
 
 		// right
 		auto [right, rightErr] = this->CommandSequence();
@@ -325,16 +325,16 @@ namespace Command
 			return { nullptr, Error(ERROR_INVALID_FUNCTION, SYNTAX_ERROR_MESSAGE) };
 		}
 
-		node->left = std::move(left);
-		node->right = std::move(right);
-		return { std::move(node), std::nullopt };
+		node->left = left;
+		node->right = right;
+		return { node, std::nullopt };
 	}
 
 
 	/*
 	* <combined-command>  ::= <command> | <command> "|" <combined-command>
 	*/
-	std::tuple<std::unique_ptr<Node>, OptionalError> Parser::CombinedCommand()
+	std::tuple<std::shared_ptr<Node>, OptionalError> Parser::CombinedCommand()
 	{
 		// left
 		auto [left, leftErr] = this->Command();
@@ -345,11 +345,11 @@ namespace Command
 		// pipe
 		auto token = this->ConsumePipe();
 		if (!token) {
-			return { std::move(left), std::nullopt };
+			return { left, std::nullopt };
 		}
 
 		// own
-		auto node = std::make_unique<Node>(NodeType::Pipe);
+		auto node = std::make_shared<Node>(NodeType::Pipe);
 
 		// right
 		auto [right, rightErr] = this->CombinedCommand();
@@ -362,16 +362,16 @@ namespace Command
 			return { nullptr, Error(ERROR_INVALID_FUNCTION, SYNTAX_ERROR_MESSAGE) };
 		}
 
-		node->left = std::move(left);
-		node->right = std::move(right);
-		return { std::move(node), std::nullopt };
+		node->left = left;
+		node->right = right;
+		return { node, std::nullopt };
 	}
 
 
 	/*
 	* <command> ::= <executable> <arguments> | <executable> <arguments> <redirections>
 	*/
-	std::tuple<std::unique_ptr<Node>, OptionalError> Parser::Command()
+	std::tuple<std::shared_ptr<Node>, OptionalError> Parser::Command()
 	{
 		auto token = this->ConsumeText();
 		if (!token) {
@@ -385,7 +385,7 @@ namespace Command
 			}
 			return { nullptr, Error(ERROR_INVALID_FUNCTION, SYNTAX_ERROR_MESSAGE) };
 		}
-		auto node = std::make_unique<Node>(NodeType::Command);
+		auto node = std::make_shared<Node>(NodeType::Command);
 		auto [command, arguments] = this->SplitCommandAndArguments(token->value);
 		node->command = command;
 		node->arguments = arguments;
@@ -403,7 +403,7 @@ namespace Command
 			Redirection r(StringUtil::Trim(file->value), op->value);
 			node->redirections.push_back(r);
 		}
-		return { std::move(node), std::nullopt };
+		return { node, std::nullopt };
 	}
 
 }
