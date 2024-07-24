@@ -72,7 +72,7 @@ void Controller::Down()
 
 void Controller::Enter()
 {
-	auto err = Command::Execute(inputBuffer->GetCommand());
+	auto [code, err] = Command::Execute(inputBuffer->GetCommand());
 	// TODO new line?
 	if (err) {
 		fprintf(stderr, "%s: %d\n", err->message.c_str(), err->code);

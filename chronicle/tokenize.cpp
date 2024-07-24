@@ -124,6 +124,9 @@ namespace Command
 		while (*s) {
 			if (*s == '^') {
 				s++;
+				if (*s == '"') {
+					quote = !quote;
+				}
 				if (*s) {
 					data += *s;
 				}

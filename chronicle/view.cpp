@@ -141,13 +141,14 @@ void View::ShowInputBuffer()
 void View::ShowPrompt()
 {
 	// TODO get real prompt
-	char buf[MAX_PATH + 1]; // +1 for '>'
+	char buf[MAX_PATH + 2]; // +1 for ':>'
 	DWORD pathLen = ::GetCurrentDirectoryA(MAX_PATH, buf);
 	if (pathLen == 0) {
 		auto err = ::GetLastError();
 		fprintf(stderr, "Failed to ::GetCurrentDirectory %d", err);
 		return;
 	}
+	buf[pathLen - 1] = ':';
 	buf[pathLen] = '>';
 	std::string prompt(buf, buf + pathLen + 1);
 	DWORD written = 0;

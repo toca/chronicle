@@ -165,6 +165,38 @@ namespace chronicletest
 			Assert::AreEqual(std::string("out.txt"), tokens->at(2).value);
 			Assert::IsTrue(tokens->at(2).kind == TokenKind::Text);
 		}
+		TEST_METHOD(QuotedArg)
+		{
+			auto [tokens, tokenErr] = Command::Tokenize("findstr \"^\"");
+			Assert::IsFalse(tokenErr.has_value());
+			Assert::AreEqual(size_t(2), tokens->size());
+			Assert::AreEqual(std::string("findstr \"\""), tokens->at(0).value);
+			Assert::IsTrue(tokens->at(0).kind == TokenKind::Text);
+		}
+		TEST_METHOD(Input)
+		{
+			auto [tokens, tokenErr] = Command::Tokenize("findstr \"key\" < test.txt");
+			Assert::IsFalse(tokenErr.has_value());
+			Assert::AreEqual(size_t(3), tokens->size());
+			Assert::AreEqual(std::string("findstr \"key\" "), tokens->at(0).value);
+			Assert::IsTrue(tokens->at(0).kind == TokenKind::Text);
+			Assert::AreEqual(std::string("<"), tokens->at(1).value);
+			Assert::IsTrue(tokens->at(1).kind == TokenKind::Operator);
+			Assert::AreEqual(std::string("test.txt"), tokens->at(2).value);
+			Assert::IsTrue(tokens->at(2).kind == TokenKind::Text);
+		}
+		TEST_METHOD(InputWithEscape)
+		{
+			auto [tokens, tokenErr] = Command::Tokenize("findstr \"^\" < input.txt");
+			Assert::IsFalse(tokenErr.has_value());
+			Assert::AreEqual(size_t(3), tokens->size());
+			Assert::AreEqual(std::string("findstr \"\" "), tokens->at(0).value);
+			Assert::IsTrue(tokens->at(0).kind == TokenKind::Text);
+			Assert::AreEqual(std::string("<"), tokens->at(1).value);
+			Assert::IsTrue(tokens->at(1).kind == TokenKind::Operator);
+			Assert::AreEqual(std::string("input.txt"), tokens->at(2).value);
+			Assert::IsTrue(tokens->at(2).kind == TokenKind::Text);
+		}
 		TEST_METHOD(Empty)
 		{
 			auto [tokens, err] = Command::Tokenize("");
@@ -702,6 +734,7 @@ namespace chronicletest
 
 	TEST_CLASS(commandtest)
 	{
+		// TODO write test 2>, 2>>, 1> 1>> 
 		HANDLE OpenFileForRead(const std::string& path)
 		{
 			return ::CreateFileA(
@@ -715,7 +748,7 @@ namespace chronicletest
 			);
 		}
 		
-		TEST_CLASS_INITIALIZE(setup)
+		TEST_METHOD_INITIALIZE(setup)
 		{
 			// replace std handles to read from test code.
 			originalStdIn = ::GetStdHandle(STD_INPUT_HANDLE);
@@ -737,7 +770,7 @@ namespace chronicletest
 			SetStdHandle(STD_OUTPUT_HANDLE, pipeStdOutWrite);
 			SetStdHandle(STD_ERROR_HANDLE, pipeStdErrWrite);
 		}
-		TEST_CLASS_CLEANUP(teardown)
+		TEST_METHOD_CLEANUP(teardown)
 		{
 			SetStdHandle(STD_INPUT_HANDLE, originalStdIn);
 			SetStdHandle(STD_OUTPUT_HANDLE, originalStdOut);
@@ -754,18 +787,18 @@ namespace chronicletest
 		
 		TEST_METHOD(OnlySingleCommand)
 		{
-			auto error = Command::Execute("echo foo");
-			Assert::IsFalse(error.has_value());
+			auto [res, err] = Command::Execute("echo foo");
+			Assert::IsFalse(err.has_value());
 			std::string buf(1024, '\0');
 			DWORD read = 0;
-			BOOL res = ::ReadFile(pipeStdOutRead, buf.data(), buf.size(), &read, nullptr);
-			Assert::IsTrue(res);
+			BOOL readRes = ::ReadFile(pipeStdOutRead, buf.data(), buf.size(), &read, nullptr);
+			Assert::IsTrue(readRes);
 			Assert::AreEqual(0, strcmp(buf.data(), "foo\n"));
 		}
 		TEST_METHOD(Redirect)
 		{
-			auto error = Command::Execute("echo test redirect > output.txt");
-			Assert::IsFalse(error.has_value());
+			auto [res, err] = Command::Execute("echo test redirect > output.txt");
+			Assert::IsFalse(err.has_value());
 			HANDLE h = ::CreateFileA(
 				"output.txt",
 				GENERIC_READ,
@@ -777,23 +810,23 @@ namespace chronicletest
 			);
 			std::string buf(1024, '\0');
 			DWORD read = 0;
-			BOOL res = ::ReadFile(h, buf.data(), buf.size(), &read, nullptr);
-			Assert::IsTrue(res);
+			BOOL readRes = ::ReadFile(h, buf.data(), buf.size(), &read, nullptr);
+			Assert::IsTrue(readRes);
 			Assert::AreEqual(0, strcmp(buf.data(), "test redirect \n"));
 			::CloseHandle(h);
 			system("del output.txt");
 		}
 		TEST_METHOD(Append)
 		{
-			auto error1 = Command::Execute("echo one> output.txt");
-			Assert::IsFalse(error1.has_value());
-			auto error2 = Command::Execute("echo two>> output.txt");
+			auto [res1, err1] = Command::Execute("echo one> output.txt");
+			Assert::IsFalse(err1.has_value());
+			auto [res2, err2] = Command::Execute("echo two>> output.txt");
 			HANDLE h = OpenFileForRead("output.txt");
-			Assert::IsFalse(error2.has_value());
+			Assert::IsFalse(err2.has_value());
 			std::string buf(1024, '\0');
 			DWORD read = 0;
-			BOOL res = ::ReadFile(h, buf.data(), buf.size(), &read, nullptr);
-			Assert::IsTrue(res);
+			BOOL readRes = ::ReadFile(h, buf.data(), buf.size(), &read, nullptr);
+			Assert::IsTrue(readRes);
 			Assert::AreEqual(0, strcmp(buf.data(), "one\ntwo\n"));
 			::CloseHandle(h);
 			system("del output.txt");
@@ -801,92 +834,85 @@ namespace chronicletest
 		TEST_METHOD(Input)
 		{
 			system("echo input test> input.txt");
-			auto error = Command::Execute("findstr ""^"" < input.txt");
-			Assert::IsFalse(error.has_value());
+			auto [res, err] = Command::Execute("findstr test < input.txt");
+			Assert::IsFalse(err.has_value());
 			std::string buf(1024, '\0');
 			DWORD read = 0;
-			BOOL res = ::ReadFile(pipeStdOutRead, buf.data(), buf.size(), &read, nullptr);
-			Assert::IsTrue(res);
+			BOOL readRes = ::ReadFile(pipeStdOutRead, buf.data(), buf.size(), &read, nullptr);
+			Assert::IsTrue(readRes);
 			Assert::AreEqual(0, strcmp(buf.data(), "input test\r\n"));
 			system("del input.txt");
 		}
 		TEST_METHOD(AndOpExecuteBoth) 
 		{
-			auto error = Command::Execute("echo foo && echo bar");
-			Assert::IsFalse(error.has_value());
+			auto [res, err] = Command::Execute("echo foo && echo bar");
+			Assert::IsFalse(err.has_value());
 			std::string buf(1024, '\0');
 			DWORD read = 0;
-			BOOL res = ::ReadFile(pipeStdOutRead, buf.data(), buf.size(), &read, nullptr);
-			Assert::IsTrue(res);
+			Assert::IsTrue(::ReadFile(pipeStdOutRead, buf.data(), buf.size(), &read, nullptr));
 			Assert::AreEqual(0, strcmp(buf.data(), "foo \nbar\n"));
 		}
 		TEST_METHOD(AndOpExecuteFirst)
 		{
 			system("echo exist> output.txt");
-			auto error = Command::Execute("call && del output.txt");
-			Assert::IsFalse(error.has_value());
+			auto [res, err] = Command::Execute("call && del output.txt");
+			Assert::IsFalse(err.has_value());
 			HANDLE h = OpenFileForRead("output.txt");
 			std::string buf(1024, '\0');
 			DWORD read = 0;
-			BOOL res = ::ReadFile(h, buf.data(), buf.size(), &read, nullptr);
-			Assert::IsTrue(res);
+			Assert::IsTrue(::ReadFile(h, buf.data(), buf.size(), &read, nullptr));
 			Assert::AreEqual(0, strcmp(buf.data(), "exist\r\n"));
 			system("del output.txt");
 		}
 		TEST_METHOD(OrOpExcuteBoth) 
 		{
-			auto error = Command::Execute("call || echo last");
-			Assert::IsFalse(error.has_value());
+			auto [res, err] = Command::Execute("call || echo last");
+			Assert::IsFalse(err.has_value());
 			std::string buf(1024, '\0');
 			DWORD read = 0;
-			BOOL res = ::ReadFile(pipeStdOutRead, buf.data(), buf.size(), &read, nullptr);
-			Assert::IsTrue(res);
+			Assert::IsTrue(::ReadFile(pipeStdOutRead, buf.data(), buf.size(), &read, nullptr));
 			Assert::AreEqual(0, strcmp(buf.data(), "last\n"));
 		}
 		TEST_METHOD(OrOpExcuteFirst)
 		{
 			system("echo exist> output.txt");
-			auto error = Command::Execute("call || del output.txt");
-			Assert::IsFalse(error.has_value());
+			auto [res, err] = Command::Execute("call || del output.txt");
+			Assert::IsFalse(err.has_value());
 			HANDLE h = OpenFileForRead("output.txt");
 			std::string buf(1024, '\0');
 			DWORD read = 0;
-			BOOL res = ::ReadFile(h, buf.data(), buf.size(), &read, nullptr);
-			Assert::IsTrue(res);
+			Assert::IsTrue(::ReadFile(h, buf.data(), buf.size(), &read, nullptr));
 			Assert::AreEqual(0, strcmp(buf.data(), "exist\r\n"));
 			system("del output.txt");
 		}
 		TEST_METHOD(SeparatorOpExcuteBothIfFaileFist)
 		{
-			auto error = Command::Execute("call & echo last");
-			Assert::IsFalse(error.has_value());
+			auto [res, err] = Command::Execute("call & echo last");
+			Assert::IsFalse(err.has_value());
 			std::string buf(1024, '\0');
 			DWORD read = 0;
-			BOOL res = ::ReadFile(pipeStdOutRead, buf.data(), buf.size(), &read, nullptr);
-			Assert::IsTrue(res);
+			Assert::IsTrue(::ReadFile(pipeStdOutRead, buf.data(), buf.size(), &read, nullptr));
 			Assert::AreEqual(0, strcmp(buf.data(), "last\n"));
 		}
 		TEST_METHOD(SeparatorOpExcuteBoth)
 		{
-			auto error = Command::Execute("echo first&echo last");
-			Assert::IsFalse(error.has_value());
+			auto [res, err] = Command::Execute("echo first&echo last");
+			Assert::IsFalse(err.has_value());
 			std::string buf(1024, '\0');
 			DWORD read = 0;
-			BOOL res = ::ReadFile(pipeStdOutRead, buf.data(), buf.size(), &read, nullptr);
-			Assert::IsTrue(res);
+			Assert::IsTrue(::ReadFile(pipeStdOutRead, buf.data(), buf.size(), &read, nullptr));
 			Assert::AreEqual(0, strcmp(buf.data(), "first\nlast\n"));
 		}
 		TEST_METHOD(ConsiderSkippedCommandsAsFailedWithOr)
 		{
 			system("echo exist> output.txt");
 
-			auto error = Command::Execute("cd || echo foo> output.txt && del output.txt");
-			Assert::IsFalse(error.has_value());
+			auto [res, err] = Command::Execute("cd || echo foo> output.txt && del output.txt");
+			Assert::IsFalse(err.has_value());
 			std::string buf(1024, '\0');
 			HANDLE h = OpenFileForRead("output.txt");
 			DWORD read = 0;
-			BOOL res = ::ReadFile(h, buf.data(), buf.size(), &read, nullptr);
-			Assert::IsTrue(res);
+			Assert::IsTrue(::ReadFile(h, buf.data(), buf.size(), &read, nullptr));
 			Assert::AreEqual(0, strcmp(buf.data(), "exist\r\n"));
 
 			system("del output.txt");
@@ -895,13 +921,12 @@ namespace chronicletest
 		{
 			system("echo exist> output.txt");
 
-			auto error = Command::Execute("xcopy && echo foo> output.txt && del output.txt && echo foo> output.txt");
-			Assert::IsFalse(error.has_value());
+			auto [res, err] = Command::Execute("xcopy && echo foo> output.txt && del output.txt && echo foo> output.txt");
+			Assert::IsFalse(err.has_value());
 			std::string buf(1024, '\0');
 			HANDLE h = OpenFileForRead("output.txt");
 			DWORD read = 0;
-			BOOL res = ::ReadFile(h, buf.data(), buf.size(), &read, nullptr);
-			Assert::IsTrue(res);
+			Assert::IsTrue(::ReadFile(h, buf.data(), buf.size(), &read, nullptr));
 			Assert::AreEqual(0, strcmp(buf.data(), "exist\r\n"));
 
 			system("del output.txt");
@@ -910,15 +935,16 @@ namespace chronicletest
 
 		TEST_METHOD(CurrentDirectoryShow)
 		{
-			auto error = Command::Execute("cd");
-			Assert::IsFalse(error.has_value());
+			auto [res, err] = Command::Execute("cd");
+			Assert::IsFalse(err.has_value());
 			std::string buf(1024, '\0');
 			DWORD read = 0;
-			BOOL res = ::ReadFile(pipeStdOutRead, buf.data(), buf.size(), &read, nullptr);
-			Assert::IsTrue(res);
+			BOOL readRes = ::ReadFile(pipeStdOutRead, buf.data(), buf.size(), &read, nullptr);
+			Assert::IsTrue(readRes);
 			std::string currentDir(4096, '\0');
 			DWORD len = ::GetCurrentDirectoryA(currentDir.size(), currentDir.data());
 			Assert::AreEqual(0, strncmp(buf.data(), currentDir.data(), len));
+			//Assert::AreEqual(std::string(buf.data()), std::string(currentDir.data()));
 		}
 	};
 }

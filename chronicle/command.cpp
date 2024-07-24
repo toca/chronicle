@@ -9,6 +9,7 @@
 
 #include "tokenize.h"
 #include "parser.h"
+#include "node.h"
 #include "error.h"
 #include "result.h"
 #include "process.h"
@@ -32,7 +33,7 @@ namespace Command
 	Result<Pipe> OpenPipe();
 
 	// command && command
-	Result<DWORD> ExecuteCommandSequence(std::shared_ptr<Node> node);
+	Result<DWORD> ExecuteCommandSequence(std::shared_ptr<Node> node, bool doNextCommand, DWORD exitCode);
 
 	// command | command
 	Result<DWORD> ExecuteCombinedCommand(std::shared_ptr<Node> node);
@@ -44,42 +45,31 @@ namespace Command
 
 	std::string GetErrorMessage(DWORD code);
 
-	bool IsFlowOperator(const Node& node);
+	
 
 
-
-
-	OptionalError Execute(const std::string& input)
+	Result<DWORD> Execute(const std::string& input)
 	{
 		//// TODO
 		//// * More?
 		//// * Error handling and show error message.
 		//// * 2>&1
 		//// * return exit code
+		//// * expand 
 		auto [tokens, tokenErr] = Tokenize(input);
 		if (tokenErr) {
-			return tokenErr;
+			return { std::nullopt, tokenErr };
 		}
 
 		Parser parser(*tokens);
 		auto [node, parseErr] = parser.Parse();
 		if (parseErr) {
-			return parseErr;
+			return { std::nullopt, parseErr };
 		}
 		
-		/*auto [handles, handlEerr] = DuplicateStdHandles();
-		if (handleErr) {
-			return handleErr;
-		}*/
-		auto [code, execErr] = ExecuteCommandSequence(node);
-		/*if (node->type == NodeType::Command) {
-			auto [proc, err] = AsyncExecuteCommand(node, handles->in, handles->out, handles->err);
-			if (err) {
-				return err;
-			}
-			auto [exitCode, waitErr] = proc->proc->WaitForExit();
 
-		}*/
+		auto [code, execErr] = ExecuteCommandSequence(node, true, 0);
+
 
 
 		//// TODO split to block
@@ -207,20 +197,70 @@ namespace Command
 		//	
 		//}
 
-		return std::nullopt;
+		return { code, std::nullopt };
 	}
 
 
-	Result<DWORD> ExecuteCommandSequence(std::shared_ptr<Node> node)
+	
+	Result<DWORD> ExecuteCommandSequence(std::shared_ptr<Node> node, bool doNextCommand, DWORD exitCode)
 	{
-		return ExecuteCombinedCommand(node);
-		/*switch (node->type)
+		switch (node->type)
 		{
 		case NodeType::And:
-
+		{
+			// succes && fail && ???
+			if (doNextCommand) {
+				auto [code, err] = ExecuteCombinedCommand(node->left);
+				if (err) {
+					return { std::nullopt, err };
+				}
+				auto result = *code == ERROR_SUCCESS;
+				return ExecuteCommandSequence(node->right, result, *code);
+			}
+			else {
+				return ExecuteCommandSequence(node->right, false, exitCode);
+			}
 			break;
-		}*/
-		return { 0, std::nullopt };
+		}
+		case NodeType::Or:
+		{
+			// cmdA || cmdB || cmdC
+			if (doNextCommand) {
+				auto [code, err] = ExecuteCombinedCommand(node->left);
+				if (err) {
+					return { std::nullopt, err };
+				}
+				auto result = *code != ERROR_SUCCESS;
+				return ExecuteCommandSequence(node->right, result, *code);
+			}
+			else {
+				return ExecuteCommandSequence(node->right, false, exitCode);
+			}
+			break;
+		}
+		case NodeType::Separator:
+		{
+			// cmdA & cmd B
+			if (doNextCommand) {
+				auto [code, err] = ExecuteCombinedCommand(node->left);
+				if (err) {
+					return { std::nullopt, err };
+				}
+				return ExecuteCommandSequence(node->right, true, *code);
+			}
+			else {
+				return ExecuteCommandSequence(node->right, true, exitCode);
+			}
+			break;
+		}
+		default:
+			if (doNextCommand) {
+				return ExecuteCombinedCommand(node);
+			}
+			else {
+				return { exitCode, std::nullopt };
+			}
+		}
 	}
 
 
@@ -523,12 +563,6 @@ namespace Command
 		std::string result(buf);
 		::LocalFree(buf);
 		return result;
-	}
-
-
-	bool IsFlowOperator(const Node& node)
-	{
-		return (node.type == NodeType::Separator || node.type == NodeType::And || node.type == NodeType::Or);
 	}
 
 
