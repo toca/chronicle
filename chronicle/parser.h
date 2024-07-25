@@ -10,8 +10,6 @@
 
 namespace Command
 {
-	Result<std::vector<Node>> ParseOLD(const std::string& input);
-
 	class Parser
 	{
 	public:
@@ -25,7 +23,7 @@ namespace Command
 		std::optional<Token> ConsumeOperator();
 		std::optional<Token> ConsumePipe();
 		std::optional<Token> ConsumeRedirection();
-		std::pair<std::string, std::string> SplitCommandAndArguments(const std::string& s);
+		std::pair<std::wstring, std::wstring> SplitCommandAndArguments(const std::wstring& s);
 
 		std::tuple<std::shared_ptr<Node>, OptionalError> CommandSequence();
 		std::tuple<std::shared_ptr<Node>, OptionalError> CombinedCommand();

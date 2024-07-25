@@ -12,15 +12,15 @@ public:
 	~InputBuffer();
 
 	OptionalError InputKey(const KEY_EVENT_RECORD& e);
-	std::string Get();
-	std::string GetCommand();
-	void Set(const std::string& s);
+	std::wstring Get();
+	std::wstring GetCommand();
+	void Set(const std::wstring& s);
 	SHORT GetCursor();
 	void ClearInput();
 	void SetOnChange(std::function<void(InputBuffer*)> callback);
 
 private:
-	std::vector<char> buffer{};
+	std::vector<wchar_t> buffer{};
 	SHORT cursorIndex = 0;
 	std::function<void(InputBuffer*)> callback;
 	bool updated = false;

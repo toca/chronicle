@@ -13,8 +13,8 @@ namespace Command
 
 	struct Token {
 		TokenKind kind;
-		std::string value;
+		std::wstring value;
 	};
 
-	Result<std::vector<Token>> Tokenize(const std::string& input);
+	Result<std::vector<Token>> Tokenize(const std::wstring& input);
 }

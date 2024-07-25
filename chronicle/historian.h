@@ -5,29 +5,29 @@
 
 struct Item {
 	int index;
-	std::string data;
+	std::wstring data;
 	bool selected;
 };
 
 class Historian
 {
 public:
-	Historian(const std::vector<std::string>& histories, size_t maxRowCount);
+	Historian(const std::vector<std::wstring>& histories, size_t maxRowCount);
 	~Historian();
 	std::optional<Item> At(int index);
-	void Filter(const std::string& keyword);
+	void Filter(const std::wstring& keyword);
 	void Next();
 	void Prev();
-	std::optional<std::string> Current();
+	std::optional<std::wstring> Current();
 	int Top();
 	int Bottom();
 	bool NeedUpdate();
 	void ResetUpdateStatus();
 
 private:
-	const std::vector<std::string>& Data();
-	const std::vector<std::string>& data;
-	std::vector<std::string> candidates;
+	const std::vector<std::wstring>& Data();
+	const std::vector<std::wstring>& data;
+	std::vector<std::wstring> candidates;
 	int index;
 	int top;
 	int bottom;

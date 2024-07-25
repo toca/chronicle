@@ -75,7 +75,7 @@ void SearchController::OnCancel(std::function<void()> callback)
 	this->cancelCallback = callback;
 }
 
-void SearchController::OnCompleted(std::function<void(const std::string&)> callback)
+void SearchController::OnCompleted(std::function<void(const std::wstring&)> callback)
 {
 	this->completedCallback = callback;
 }

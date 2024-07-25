@@ -6,5 +6,5 @@
 
 namespace Command 
 {
-	Result<DWORD> Execute(const std::string& command);
+	Result<DWORD> Execute(const std::wstring& command);
 }

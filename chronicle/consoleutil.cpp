@@ -9,13 +9,13 @@ namespace ConsoleUtil
 		auto stdoutHandle = ::GetStdHandle(STD_OUTPUT_HANDLE);
 		if (stdoutHandle == INVALID_HANDLE_VALUE) {
 			auto err = ::GetLastError();
-			return { std::nullopt, Error(err, "Failed to ::GetStdHandle") };
+			return { std::nullopt, Error(err, L"Failed to ::GetStdHandle") };
 		}
 		CONSOLE_SCREEN_BUFFER_INFOEX info{};
 		info.cbSize = sizeof(CONSOLE_SCREEN_BUFFER_INFOEX);
 		if (!::GetConsoleScreenBufferInfoEx(stdoutHandle, &info)) {
 			auto err = ::GetLastError();
-			return { std::nullopt, Error(err, "Failed to ::GetConsoleScreenBufferInfoEx") };
+			return { std::nullopt, Error(err, L"Failed to ::GetConsoleScreenBufferInfoEx") };
 		}
 		return { info, std::nullopt };
 	}
@@ -66,9 +66,9 @@ namespace ConsoleUtil
 			return { std::nullopt, err };
 		}
 		auto width = info->srWindow.Right - info->srWindow.Left + 1;
-		int dy = scalar / width;
-		int dx = scalar % width;
-		return { COORD{ SHORT(origin.X + dx), SHORT(origin.Y + dy) }, std::nullopt };
+		int dy = (scalar + origin.X) / width;
+		int x = (scalar + origin.X) % width;
+		return { COORD{ SHORT(x), SHORT(origin.Y + dy) }, std::nullopt };
 	}
 
 }

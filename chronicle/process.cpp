@@ -7,13 +7,14 @@
 #include "stringutil.h"
 
 
+// functions
+Type ClassifyCommand(const std::wstring& command);
+void ShowError(DWORD code, HANDLE handle);
+std::string GetErrorMessage(DWORD code);
 
-Type ClassifyCommand(const std::string& command);
 
 
-
-
-Process::Process(const std::string& cmd, const std::string& arg, HANDLE in, HANDLE out, HANDLE err)
+Process::Process(const std::wstring& cmd, const std::wstring& arg, HANDLE in, HANDLE out, HANDLE err)
 	: command(cmd)
 	, arguments(arg)
 	, input(in)
@@ -39,7 +40,11 @@ OptionalError Process::Start()
 {
 	
 	if (type == Type::EXTERNAL) {
-		this->Create();
+		DWORD result = this->Create();
+		if (result != ERROR_SUCCESS) {
+			// TODO not the same as cmd.exe
+			ShowError(result, this->output);
+		}
 		return std::nullopt;
 	}
 	else {
@@ -98,7 +103,7 @@ OptionalError Process::Start()
 	}
 	case Type::CHANGE_DRIVE:
 	{
-		auto [code, err] = InternalCommand::Cd("/D " + command, this->output);
+		auto [code, err] = InternalCommand::Cd(L"/D " + command, this->output);
 		if (!err) {
 			this->exitCode = *code;
 		}
@@ -173,7 +178,7 @@ Result<DWORD> Process::WaitForExit()
 		::WaitForSingleObject(this->processInfo.hProcess, INFINITE);
 		if (!::GetExitCodeProcess(this->processInfo.hProcess, &(this->exitCode))) {
 			auto err = ::GetLastError();
-			return { std::nullopt, Error(err, "Failed to ::GetExitCodeProcess WaitForExit@process.cpp") };
+			return { std::nullopt, Error(err, L"Failed to ::GetExitCodeProcess WaitForExit@process.cpp") };
 		}
 	}
 	else {
@@ -185,7 +190,7 @@ Result<DWORD> Process::WaitForExit()
 }
 
 
-void Process::Create()
+DWORD Process::Create()
 {
 	// launch cmd.exe
 	STARTUPINFOA startupInfo{};
@@ -196,7 +201,7 @@ void Process::Create()
 	startupInfo.hStdOutput = this->output;
 	startupInfo.hStdError = this->error;
 
-	std::string commandAndArguments = this->command + " " + this->arguments;
+	std::wstring commandAndArguments = this->command + L" " + this->arguments;
 	std::vector<char> commandLine(commandAndArguments.data(),commandAndArguments.data() + commandAndArguments.size() + 1);
 	// launch
 	auto res = ::CreateProcessA(
@@ -213,33 +218,68 @@ void Process::Create()
 	);
 	if (!res) {
 		this->exitCode = ::GetLastError();
+		return this->exitCode;
 	}
+	else {
+		return ERROR_SUCCESS;
+	}
+}
+
+
+void ShowError(DWORD code, HANDLE handle)
+{
+	std::string message = GetErrorMessage(code);
+	DWORD written = 0;
+	::WriteFile(handle, message.data(), message.size(), &written, nullptr);
+}
+
+
+std::string GetErrorMessage(DWORD code)
+{
+	char* buf = 0;
+	auto len = ::FormatMessageA(
+		FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+		nullptr,
+		code,
+		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		reinterpret_cast<char*>(&buf),
+		0,
+		nullptr
+	);
+	// FIXME
+	if (len == 0) {
+		auto err = ::GetLastError();
+		return "";
+	}
+	std::string result(buf);
+	::LocalFree(buf);
+	return result;
 }
 
 
 
 
-Type ClassifyCommand(const std::string& command)
+Type ClassifyCommand(const std::wstring& command)
 {
 	if (command.empty()) {
 		return Type::EMPTY;
 	}
-	else if (_stricmp(command.c_str(), "dir") == 0) {
+	else if (_wcsicmp(command.c_str(), L"dir") == 0) {
 		return Type::DIR;
 	}
-	else if (_stricmp(command.c_str(), "cd") == 0) {
+	else if (_wcsicmp(command.c_str(), L"cd") == 0) {
 		return Type::CD;
 	}
-	else if (_stricmp(command.c_str(), "pushd") == 0) {
+	else if (_wcsicmp(command.c_str(), L"pushd") == 0) {
 		return Type::PUSHD;
 	}
-	else if (_stricmp(command.c_str(), "popd") == 0) {
+	else if (_wcsicmp(command.c_str(), L"popd") == 0) {
 		return Type::POPD;
 	}
-	else if (_stricmp(command.c_str(), "set") == 0) {
+	else if (_wcsicmp(command.c_str(), L"set") == 0) {
 		return Type::SET;
 	}
-	else if (_stricmp(command.c_str(), "echo") == 0) {
+	else if (_wcsicmp(command.c_str(), L"echo") == 0) {
 		return Type::ECHO;
 	}
 	else if (InternalCommand::IsDriveLetter(command)) {

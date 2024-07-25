@@ -34,8 +34,8 @@ OVERLAPPED overLapped{};
 std::thread hookThread;
 std::thread queueThread;
 
-void Prev();
-void Next();
+//void Prev();
+//void Next();
 bool AmIActive();
 HANDLE OpenConsoleIn();
 OptionalError Clear();
@@ -48,8 +48,8 @@ Result<std::string> ReadUncommitedInputs(COORD from);
 void WaitOutputDone();
 
 
-Result<std::ifstream> OpenHistoryFile();
-Result<std::ofstream> GetHistoryFile();
+Result<std::wifstream> OpenHistoryFile();
+Result<std::wofstream> GetHistoryFile();
 
 // renew architecture
 #include "view.h"
@@ -74,6 +74,9 @@ int main()
     try {
         // locale
         setlocale(LC_ALL, "");
+
+        //DWORD handleCountBefore = 0;
+        //::GetProcessHandleCount(::GetCurrentProcess(), &handleCountBefore);
 
         // new achitecture!!!!
         
@@ -165,7 +168,7 @@ int main()
         hookThread = std::thread([&]() {
             auto err = hooker->Start();
             if (err) {
-                fprintf(stderr, err->message.c_str());
+                fwprintf(stderr, err->message.c_str());
             }
         });
 
@@ -206,7 +209,7 @@ int main()
             // read input
             auto [inputs, readErr] = Read();
             if (readErr) {
-                fprintf(stderr, "%s : %d\n", readErr->message.c_str(), readErr->code);
+                fwprintf(stderr, L"%s : %d\n", readErr->message.c_str(), readErr->code);
                 return readErr->code;
             }
             // pass inputs
@@ -224,80 +227,82 @@ int main()
 
 
 
-            DWORD read = 0;
-            buf.assign(buf.size(), '\0');
+            //DWORD read = 0;
+            //buf.assign(buf.size(), '\0');
 
-            auto promptPos = PromptPosition();
+            //auto promptPos = PromptPosition();
 
-            // read input here -------------------------------------------------------
-            if (!::ReadFile(consoleIn, buf.data(), buf.size(), &read, &overLapped)) {
-                auto err = GetLastError();
-                if (err != ERROR_IO_PENDING) {
-                    fprintf(stderr, "Failed to ::ReadFile %d\n", err);
-                    return err;
-                }
-                ::WaitForSingleObject(overLapped.hEvent, INFINITE);
-                DWORD transferred = 0;
-                if (!::GetOverlappedResult(consoleIn, &overLapped, &transferred, TRUE)) {
-                    auto err = ::GetLastError();
-                    if (err != ERROR_OPERATION_ABORTED) {
-                        fprintf(stderr, "Failed to ::GetOverlappedResult %d\n", err);
-                        return err;
-                    }
-                }
-            }
-            // read done or canceled
-            if (stop) break;
-
-            // search mode ----
-            if (searching) {
-                // read uncommited buffer and remove it
-                auto[ uncommitedInputs, readErr ] = ReadUncommitedInputs(promptPos);
-                if (readErr) {
-                    fprintf(stderr, "%s %d", readErr->message.c_str(), readErr->code);
-                    return readErr->code;
-                }
-                Clear();
-
-                ::CloseHandle(consoleIn);
-                auto [ result, err] = searchView->Show(history->GetAll());
-                if (err) {
-                    fprintf(stderr, "%s %d", err->message.c_str(), err->code);
-                    return err->code;
-                }
-                if (result) {
-                    Clear();
-                    Send(*result);
-                }
-                searching = false;
-                consoleIn = OpenConsoleIn();
-                if (!consoleIn) {
-                    auto err = ::GetLastError();
-                    fprintf(stderr, "Failed to OpenConsoleIn %d", err);
-                    return err;
-                }
-                continue;
-            }
-
-            // process command
-            std::string line;
-            auto pos = buf.find('\r');
-            if (pos != std::string::npos) {
-                line.assign(buf.begin(), buf.begin() + pos);
-            }
-            //if (Redirectable(line)) {
-            //    cmd->Input(line + '\n');
+            //// read input here -------------------------------------------------------
+            //if (!::ReadFile(consoleIn, buf.data(), buf.size(), &read, &overLapped)) {
+            //    auto err = GetLastError();
+            //    if (err != ERROR_IO_PENDING) {
+            //        fprintf(stderr, "Failed to ::ReadFile %d\n", err);
+            //        return err;
+            //    }
+            //    ::WaitForSingleObject(overLapped.hEvent, INFINITE);
+            //    DWORD transferred = 0;
+            //    if (!::GetOverlappedResult(consoleIn, &overLapped, &transferred, TRUE)) {
+            //        auto err = ::GetLastError();
+            //        if (err != ERROR_OPERATION_ABORTED) {
+            //            fprintf(stderr, "Failed to ::GetOverlappedResult %d\n", err);
+            //            return err;
+            //        }
+            //    }
             //}
-            else {
-                system(line.c_str());
-                ShowPrompt();
-            }
-            if (line.size()) {
-                history->Add(line);
-            }
-            WaitOutputDone();
+            //// read done or canceled
+            //if (stop) break;
+
+            //// search mode ----
+            //if (searching) {
+            //    // read uncommited buffer and remove it
+            //    auto[ uncommitedInputs, readErr ] = ReadUncommitedInputs(promptPos);
+            //    if (readErr) {
+            //        fprintf(stderr, "%s %d", readErr->message.c_str(), readErr->code);
+            //        return readErr->code;
+            //    }
+            //    Clear();
+
+            //    ::CloseHandle(consoleIn);
+            //    auto [ result, err] = searchView->Show(history->GetAll());
+            //    if (err) {
+            //        fprintf(stderr, "%s %d", err->message.c_str(), err->code);
+            //        return err->code;
+            //    }
+            //    if (result) {
+            //        Clear();
+            //        Send(*result);
+            //    }
+            //    searching = false;
+            //    consoleIn = OpenConsoleIn();
+            //    if (!consoleIn) {
+            //        auto err = ::GetLastError();
+            //        fprintf(stderr, "Failed to OpenConsoleIn %d", err);
+            //        return err;
+            //    }
+            //    continue;
+            //}
+
+            //// process command
+            //std::string line;
+            //auto pos = buf.find('\r');
+            //if (pos != std::string::npos) {
+            //    line.assign(buf.begin(), buf.begin() + pos);
+            //}
+            ////if (Redirectable(line)) {
+            ////    cmd->Input(line + '\n');
+            ////}
+            //else {
+            //    system(line.c_str());
+            //    ShowPrompt();
+            //}
+            //if (line.size()) {
+            //    history->Add(line);
+            //}
+            //WaitOutputDone();
         }
         //////////////////////////////////////
+
+
 
 
         // save histories
@@ -308,7 +313,12 @@ int main()
         }
 
         printf("Bye.\n");
-       
+
+        //DWORD handleCountAfter = 0;
+        //::GetProcessHandleCount(::GetCurrentProcess(), &handleCountAfter);
+        //if (handleCountAfter - handleCountBefore != 0) {
+        //    printf("Leak %d Handles\n", handleCountAfter - handleCountBefore);
+        //}
     }
     catch (const std::exception& ex) {
         std::cout << ex.what() << std::endl;
@@ -321,27 +331,27 @@ int main()
 }
 
 
-void Prev()
-{
-    auto s = history->Older();
-    if (s) {
-        ::OutputDebugStringA(std::format("{}\n", *s).c_str());
-        Clear();
-        Send(*s);
-    }
-}
-
-
-void Next() 
-{
-    auto s = history->Newer();
-
-    if (s) {
-        ::OutputDebugStringA(std::format("{}\n", *s).c_str());
-        Clear();
-        Send(*s);
-    }
-}
+//void Prev()
+//{
+//    auto s = history->Older();
+//    if (s) {
+//        ::OutputDebugStringA(std::format("{}\n", *s).c_str());
+//        Clear();
+//        Send(*s);
+//    }
+//}
+//
+//
+//void Next() 
+//{
+//    auto s = history->Newer();
+//
+//    if (s) {
+//        ::OutputDebugStringA(std::format("{}\n", *s).c_str());
+//        Clear();
+//        Send(*s);
+//    }
+//}
 
 
 bool AmIActive()
@@ -395,7 +405,7 @@ OptionalError Clear()
     
     DWORD written = 0;
     if (!::WriteConsoleInputA(stdinHandle, records, 2, &written)) {
-        return Error(::GetLastError(), "Failed to WriteConsoleIput");
+        return Error(::GetLastError(), L"Failed to WriteConsoleIput");
     }
 
     return std::nullopt;
@@ -406,7 +416,7 @@ OptionalError Send(const std::string& message)
 {
     std::wstring wideMessage(message.size(), L'\0');
     if (0 == ::MultiByteToWideChar(CP_ACP, MB_COMPOSITE, message.data(), message.size(), wideMessage.data(), wideMessage.size())) {
-        return Error(::GetLastError(), "Failed to MultiByteToWideChar");
+        return Error(::GetLastError(), L"Failed to MultiByteToWideChar");
     }
 
     std::vector<INPUT_RECORD> buf;
@@ -427,36 +437,36 @@ OptionalError Send(const std::string& message)
     }
     DWORD written = 0;
     if (!::WriteConsoleInputA(stdinHandle, buf.data(), buf.size(), &written)) {
-        return Error(::GetLastError(), "Failed to WriteConsoleIput");
+        return Error(::GetLastError(), L"Failed to WriteConsoleIput");
     }
     return std::nullopt;
 }
 
 
 
-Result<std::ifstream> OpenHistoryFile() 
+Result<std::wifstream> OpenHistoryFile() 
 {
     std::string buf(4096, '\0');
     ::ExpandEnvironmentStringsA("%USERPROFILE%\\.cmd_history", buf.data(), buf.size());
 
     // open file
-    std::ifstream fileStream(buf);
+    std::wifstream fileStream(buf);
     if (!fileStream.is_open()) {
-        return { std::nullopt, Error(2, "Failed to Open history file") };
+        return { std::nullopt, Error(2, L"Failed to Open history file") };
     }
     return { std::move(fileStream), std::nullopt };
 }
 
 
-Result<std::ofstream> GetHistoryFile()
+Result<std::wofstream> GetHistoryFile()
 {
     std::string buf(4096, '\0');
     ::ExpandEnvironmentStringsA("%USERPROFILE%\\.cmd_history", buf.data(), buf.size());
 
     // open or create file
-    std::ofstream fileStream(buf);
+    std::wofstream fileStream(buf);
     if (!fileStream.is_open()) {
-        return { std::nullopt, Error(2, "Failed to Open history file") };
+        return { std::nullopt, Error(2, L"Failed to Open history file") };
     }
     return { std::move(fileStream), std::nullopt };
 }
@@ -516,7 +526,7 @@ Result<std::string> ReadUncommitedInputs(COORD from)
     CONSOLE_SCREEN_BUFFER_INFO info;
     if (!::GetConsoleScreenBufferInfo(handle, &info)) {
         auto err = ::GetLastError();
-        return { std::nullopt, Error(err, "Failed to ::GetConsoleScreenBuffer") };
+        return { std::nullopt, Error(err, L"Failed to ::GetConsoleScreenBuffer") };
     }
     auto dx = info.dwCursorPosition.X - from.X;
     auto dy = info.dwCursorPosition.Y - from.Y;
@@ -526,7 +536,7 @@ Result<std::string> ReadUncommitedInputs(COORD from)
     DWORD read = 0;
     if (!::ReadConsoleOutputCharacterA(handle, buf.data(), buf.size(), from, &read)) {
         auto err = ::GetLastError();
-        return { std::nullopt, Error(err, "Failed to ::ReadConsoleOutputCharacterA") };
+        return { std::nullopt, Error(err, L"Failed to ::ReadConsoleOutputCharacterA") };
     }
     return { buf, std::nullopt };
 }
@@ -551,7 +561,7 @@ Result<std::vector<INPUT_RECORD>> Read()
 {
     DWORD count = 0;
     if (!::GetNumberOfConsoleInputEvents(stdinHandle, &count)) {
-        return { {}, Error(::GetLastError(), "Failed to ::GetNumberOfConsoleInputEvents") };
+        return { {}, Error(::GetLastError(), L"Failed to ::GetNumberOfConsoleInputEvents") };
     }
     if (!count) {
         return { std::vector<INPUT_RECORD>{}, std::nullopt };
@@ -560,8 +570,8 @@ Result<std::vector<INPUT_RECORD>> Read()
     DWORD len = DWORD(inputs.size());
     DWORD numOfEvents = 0;
 
-    if (!::ReadConsoleInputA(stdinHandle, inputs.data(), len, &numOfEvents)) {
-        return { {}, Error(::GetLastError(), "Failed to ::ReadConsoleInput") };
+    if (!::ReadConsoleInputW(stdinHandle, inputs.data(), len, &numOfEvents)) {
+        return { {}, Error(::GetLastError(), L"Failed to ::ReadConsoleInput") };
     }
     return { inputs, std::nullopt };
 }

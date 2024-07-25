@@ -33,7 +33,7 @@ std::optional<Error> KeyHooker::Start()
     if (!::RegisterClassA(&windowClass)) {
         auto err = ::GetLastError();
         if (err != ERROR_CLASS_ALREADY_EXISTS) {
-            return Error(::GetLastError(), "Failed to RegisterClass");
+            return Error(::GetLastError(), L"Failed to RegisterClass");
         }
     }
 
@@ -51,7 +51,7 @@ std::optional<Error> KeyHooker::Start()
     );
 
     if (!window) {
-        return Error(::GetLastError(), "Failed to CreateWindowEx");
+        return Error(::GetLastError(), L"Failed to CreateWindowEx");
     }
 
     self = this;
@@ -73,7 +73,7 @@ std::optional<Error> KeyHooker::Stop()
 {
     // unhook
     if (!this->neighbor) {
-        return Error(ERROR_INVALID_HANDLE, "Not started");
+        return Error(ERROR_INVALID_HANDLE, L"Not started");
     }
     ::UnhookWindowsHookEx(this->neighbor);
 

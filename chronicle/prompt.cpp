@@ -12,16 +12,16 @@ Prompt::~Prompt()
 {
 }
 
-std::string Prompt::Get()
+std::wstring Prompt::Get()
 {
-	static const std::string p = "\x1b[96m>\x1b[0m ";
-	std::string s(this->buffer.begin() , this->buffer.end());
+	static const std::wstring p = L"\x1b[96m>\x1b[0m ";
+	std::wstring s(this->buffer.begin() , this->buffer.end());
 	return p + s;
 }
 
-std::string Prompt::GetRawStr()
+std::wstring Prompt::GetRawStr()
 {
-	return std::string(this->buffer.begin(), this->buffer.end());
+	return std::wstring(this->buffer.begin(), this->buffer.end());
 }
 
 SHORT Prompt::GetCursor()
@@ -94,7 +94,7 @@ void Prompt::InputKey(const KEY_EVENT_RECORD& e)
 			this->updated = true;
 			for (int i = 0; i < e.wRepeatCount; i++) {
 				auto it = this->buffer.begin();
-				this->buffer.insert(it + this->cursorIndex, e.uChar.AsciiChar);
+				this->buffer.insert(it + this->cursorIndex, e.uChar.UnicodeChar);
 				this->cursorIndex++;
 			}
 		}

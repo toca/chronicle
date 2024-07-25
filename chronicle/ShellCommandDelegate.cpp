@@ -16,7 +16,7 @@ Result<ShellCommandDelegate*> ShellCommandDelegate::Create()
 
     ShellCommandDelegate *self = new ShellCommandDelegate();
     if (!::CreatePipe(&self->stdinRead, &self->stdinWrite, &security, 0)) {
-        return { std::nullopt, Error(::GetLastError(),  "Failed to ::CreatePipe") };
+        return { std::nullopt, Error(::GetLastError(), L"Failed to ::CreatePipe") };
     }
 
     ::SetHandleInformation(self->stdinWrite, HANDLE_FLAG_INHERIT, 0);
@@ -52,7 +52,7 @@ Result<ShellCommandDelegate*> ShellCommandDelegate::Create()
         &self->processInfo
     );
     if (!res) {
-        return { std::nullopt, Error(::GetLastError(), "Failed to ::CreateProcess")};
+        return { std::nullopt, Error(::GetLastError(), L"Failed to ::CreateProcess")};
     }
    
     //SetConsoleOutputCP(CP_UTF8);
@@ -72,7 +72,7 @@ std::optional<Error> ShellCommandDelegate::Input(const std::string& line)
     }
     DWORD written = 0;
     if (!::WriteFile(this->stdinWrite, line.data(), line.size(), &written, nullptr)) {
-        return Error(::GetLastError(), "Failed to WriteFile");
+        return Error(::GetLastError(), L"Failed to WriteFile");
     }
     else {
         return std::nullopt;

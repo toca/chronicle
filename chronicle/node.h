@@ -34,12 +34,12 @@ namespace Command
 
 	struct Redirection 
 	{
-		Redirection(const std::string file, const std::string op)
+		Redirection(const std::wstring file, const std::wstring op)
 			: file(file)
 			, op(op)
 		{}
-		std::string file;
-		std::string op;
+		std::wstring file;
+		std::wstring op;
 	};
 
 	struct Node
@@ -52,10 +52,10 @@ namespace Command
 		NodeType type;
 		std::shared_ptr<Node> left;
 		std::shared_ptr<Node> right;
-		std::string command = "";
-		std::string arguments = "";
-		std::string file = "";
-		std::string op = "";
+		std::wstring command = L"";
+		std::wstring arguments = L"";
+		std::wstring file = L"";
+		std::wstring op = L"";
 		std::vector<Redirection> redirections = {};
 	};
 }

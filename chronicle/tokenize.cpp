@@ -1,18 +1,18 @@
 #include "tokenize.h"
 namespace Command
 {
-	bool IsOperator(const char c1);
-	bool IsSpecialOperator(const char c1, const char c2);
-	Result<std::string> ReadOperator(const char* s);
-	Result<std::string> ReadText(const char* s);
+	bool IsOperator(const wchar_t c1);
+	bool IsSpecialOperator(const wchar_t c1, const wchar_t c2);
+	Result<std::wstring> ReadOperator(const wchar_t* s);
+	Result<std::wstring> ReadText(const wchar_t* s);
 
-	Result<std::vector<Token>> Tokenize(const std::string& input)
+	Result<std::vector<Token>> Tokenize(const std::wstring& input)
 	{
 		std::vector<Token> result;
 		std::string data;
-		const char* s = input.c_str();
+		const wchar_t* s = input.c_str();
 		while (*s) {
-			if (*s == ' ') { // ignore leading space
+			if (*s == L' ') { // ignore leading space
 				s++;
 				continue;
 			}
@@ -33,19 +33,19 @@ namespace Command
 	}
 
 
-	bool IsOperator(const char c1)
+	bool IsOperator(const wchar_t c1)
 	{
-		if (c1 == '>' || c1 == '<' || c1 == '|' || c1 == '&' || c1 == '(' || c1 == ')') {
+		if (c1 == L'>' || c1 == L'<' || c1 == L'|' || c1 == L'&' || c1 == L'(' || c1 == L')') {
 			return true;
 		}
 
 		return false;
 	}
 
-	bool IsSpecialOperator(const char c1, const char c2)
+	bool IsSpecialOperator(const wchar_t c1, const wchar_t c2)
 	{
-		if (c1 == '1' || c1 == '2') {
-			if (c2 == '>') {
+		if (c1 == L'1' || c1 == L'2') {
+			if (c2 == L'>') {
 				return true;
 			}
 		}
@@ -58,73 +58,73 @@ namespace Command
 	* <output-redirector>	::= ">" | ">>"
 	* Wow! Try `echo Hello2>&1World`  It's valid.
 	*/
-	Result<std::string> ReadOperator(const char* s)
+	Result<std::wstring> ReadOperator(const wchar_t* s)
 	{
-		std::string result;
+		std::wstring result;
 		// Expect "1>" or "2>"
-		if (*s == '1' || *s == '2') {
+		if (*s == L'1' || *s == L'2') {
 			result += *s;
 			s++;
-			if (*s != '>') {
-				return { std::nullopt, Error(ERROR_INVALID_FUNCTION, "LogicalError ReadOperator@parse.cpp") };
+			if (*s != L'>') {
+				return { std::nullopt, Error(ERROR_INVALID_FUNCTION, L"LogicalError ReadOperator@parse.cpp") };
 			}
 		}
 		// redirect
-		if (*s == '>') {
+		if (*s == L'>') {
 			result += *s;
 			s++;
-			if (*s == '>') {
+			if (*s == L'>') {
 				result += *s;
 				s++;
 			}
-			if (*s == '&')
+			if (*s == L'&')
 			{
 				result += *s;
 				s++;
-				if (*s == '1' || *s == '2') {
+				if (*s == L'1' || *s == L'2') {
 					result += *s;
 				}
 			}
 			return { result, std::nullopt };
 		}
 		// input
-		else if (*s == '<') {
-			return { "<", std::nullopt };
+		else if (*s == L'<') {
+			return { L"<", std::nullopt };
 		}
-		else if (*s == '|') {
-			if (*(s + 1) == '|') {
-				return { "||", std::nullopt };
+		else if (*s == L'|') {
+			if (*(s + 1) == L'|') {
+				return { L"||", std::nullopt };
 			}
 			else {
-				return { "|", std::nullopt };
+				return { L"|", std::nullopt };
 			}
 		}
-		else if (*s == '&') {
-			if (*(s + 1) == '&') {
-				return { "&&", std::nullopt };
+		else if (*s == L'&') {
+			if (*(s + 1) == L'&') {
+				return { L"&&", std::nullopt };
 			}
 			else {
-				return { "&", std::nullopt };
+				return { L"&", std::nullopt };
 			}
 		}
-		else if (*s == '(') {
-			return { "(", std::nullopt };
+		else if (*s == L'(') {
+			return { L"(", std::nullopt };
 		}
-		else if (*s == ')') {
-			return { ")", std::nullopt };
+		else if (*s == L')') {
+			return { L")", std::nullopt };
 		}
-		return { std::nullopt, Error(ERROR_BAD_FORMAT, "Failed to ReadOperator: Unknow Operator") };
+		return { std::nullopt, Error(ERROR_BAD_FORMAT, L"Failed to ReadOperator: Unknow Operator") };
 	}
 
 
-	Result<std::string> ReadText(const char* s)
+	Result<std::wstring> ReadText(const wchar_t* s)
 	{
-		std::string data;
+		std::wstring data;
 		bool quote = false;
 		while (*s) {
-			if (*s == '^') {
+			if (*s == L'^') {
 				s++;
-				if (*s == '"') {
+				if (*s == L'"') {
 					quote = !quote;
 				}
 				if (*s) {
@@ -135,10 +135,10 @@ namespace Command
 				return { data, std::nullopt };
 			}
 			else {
-				if (*s == '"') {
+				if (*s == L'"') {
 					quote = !quote;
 				}
-				else if (!quote && *s == ' ') { // expect " 2>"
+				else if (!quote && *s == L' ') { // expect " 2>"
 					if (*(s + 1) && *(s + 2)) {
 						if (IsSpecialOperator(*(s + 1), *(s + 2))) {
 							data += *s;

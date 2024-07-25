@@ -72,13 +72,17 @@ void Controller::Down()
 
 void Controller::Enter()
 {
-	auto [code, err] = Command::Execute(inputBuffer->GetCommand());
-	// TODO new line?
-	if (err) {
-		fprintf(stderr, "%s: %d\n", err->message.c_str(), err->code);
-		// show error in Command or View
+ 	printf("\n");
+	const std::wstring command =  inputBuffer->GetCommand();
+	if (!command.empty()) {
+		auto [code, err] = Command::Execute(command);
+		if (err) {
+			fwprintf(stderr, L"%s: %d\n", err->message.c_str(), err->code);
+			// show error in Command or View
+		}
+		this->inputBuffer->ClearInput();
+		printf("\n");
 	}
-	this->inputBuffer->ClearInput();
 	this->promptGate->GetReady();
 }
 

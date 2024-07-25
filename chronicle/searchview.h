@@ -16,12 +16,12 @@ class SearchView
 public:
 	SearchView();
 	~SearchView();
-	Result<std::string> Show(const std::vector<std::string>& histories);
+	Result<std::wstring> Show(const std::vector<std::wstring>& histories);
 	void Stop();
 	std::tuple<std::vector<INPUT_RECORD>, std::optional<Error>> Read();
 	std::optional<Error> Render();
 private:
-	std::optional<Error> Init(const std::vector<std::string>& histories);
+	std::optional<Error> Init(const std::vector<std::wstring>& histories);
 
 	// Controller
 	std::unique_ptr<SearchController> controller;
@@ -29,7 +29,7 @@ private:
 	std::shared_ptr<Prompt> prompt;
 	std::shared_ptr<Historian> historian;
 
-	std::optional<std::string> result = std::nullopt;
+	std::optional<std::wstring> result = std::nullopt;
 	COORD size;
 	HANDLE stdOutHandle{};
 	HANDLE stdInHandle{};

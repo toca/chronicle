@@ -1,7 +1,7 @@
 #include "historian.h"
 #include "regex"
 
-Historian::Historian(const std::vector<std::string>& histories, size_t maxRowCount)
+Historian::Historian(const std::vector<std::wstring>& histories, size_t maxRowCount)
 	: data(histories)
 	, rowCount(maxRowCount)
 	, index(-1)
@@ -30,13 +30,13 @@ std::optional<Item> Historian::At(int index)
 }
 
 
-void Historian::Filter(const std::string& keyword)
+void Historian::Filter(const std::wstring& keyword)
 {
 	this->index = 0;
 	this->candidates.clear();
 	candidates.reserve(this->data.size());
 	for (auto& each : this->data) {
-		if (each.find(keyword) != std::string::npos) {
+		if (each.find(keyword) != std::wstring::npos) {
 			this->candidates.push_back(each);
 		}
 	}
@@ -80,7 +80,7 @@ void Historian::Prev()
 	this->updated = true;
 }
 
-std::optional<std::string> Historian::Current()
+std::optional<std::wstring> Historian::Current()
 {
 	if (0 <= this->index) {
 		return this->data[this->index];
@@ -113,7 +113,7 @@ void Historian::ResetUpdateStatus()
 	this->updated = false;
 }
 
-const std::vector<std::string>& Historian::Data()
+const std::vector<std::wstring>& Historian::Data()
 {
 	if (this->candidates.size()) {
 		return this->candidates;

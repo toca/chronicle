@@ -1,4 +1,5 @@
 #include "inputbuffer.h"
+#include "stringutil.h"
 
 InputBuffer::InputBuffer()
 {
@@ -39,7 +40,7 @@ OptionalError InputBuffer::InputKey(const KEY_EVENT_RECORD& e)
 	case VK_RIGHT:
 		this->Right();
 		break;
-	//case VK_RETURN:
+	case VK_RETURN:
 	case VK_UP:
 	case VK_DOWN:
 		// do nothing
@@ -47,10 +48,10 @@ OptionalError InputBuffer::InputKey(const KEY_EVENT_RECORD& e)
 	default:
 		this->updated = true;
 		// FIXME max length of input = 1024 
-		if (e.uChar.AsciiChar != L'\0' && this->buffer.size() < 1024) {
+		if (e.uChar.UnicodeChar != L'\0' && this->buffer.size() < 1024) {
 			for (int i = 0; i < e.wRepeatCount; i++) {
 				auto it = this->buffer.begin();
-				this->buffer.insert(it + this->cursorIndex, e.uChar.AsciiChar);
+				this->buffer.insert(it + this->cursorIndex, e.uChar.UnicodeChar);
 				this->cursorIndex++;
 			}
 		}
@@ -61,16 +62,16 @@ OptionalError InputBuffer::InputKey(const KEY_EVENT_RECORD& e)
 }
 
 
-std::string InputBuffer::Get()
+std::wstring InputBuffer::Get()
 {
-	return std::string(this->buffer.begin(), this->buffer.end());
+	return std::wstring(this->buffer.begin(), this->buffer.end());
 }
 
 
-std::string InputBuffer::GetCommand()
+std::wstring InputBuffer::GetCommand()
 {
-	std::string s(this->buffer.begin(), this->buffer.end());
-	auto pos = s.find('\r');
+	std::wstring s(this->buffer.begin(), this->buffer.end());
+	auto pos = s.find(L'\r');
 	if (pos == std::string::npos) {
 		return s;
 	}
@@ -80,9 +81,9 @@ std::string InputBuffer::GetCommand()
 }
 
 
-void InputBuffer::Set(const std::string& s)
+void InputBuffer::Set(const std::wstring& s)
 {
-	this->buffer = std::vector<char>(s.begin(), s.end());
+	this->buffer = std::vector<wchar_t>(s.begin(), s.end());
 	this->updated = true;
 	this->OnChanged();
 	this->updated = false;
@@ -91,7 +92,8 @@ void InputBuffer::Set(const std::string& s)
 
 SHORT InputBuffer::GetCursor()
 {
-	return this->cursorIndex;
+	std::wstring s(this->buffer.begin(), this->buffer.begin() + this->cursorIndex);
+	return StringUtil::GetDisplayWidth(s);
 }
 
 

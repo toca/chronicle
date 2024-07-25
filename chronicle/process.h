@@ -21,13 +21,13 @@ enum class Type
 class Process
 {
 public:
-	Process(const std::string& command, const std::string& arguments, HANDLE input, HANDLE output, HANDLE error);
+	Process(const std::wstring& command, const std::wstring& arguments, HANDLE input, HANDLE output, HANDLE error);
 	~Process();
 	OptionalError Start();
 	Result<DWORD> WaitForExit();
 
-	const std::string command;
-	const std::string arguments;
+	const std::wstring command;
+	const std::wstring arguments;
 
 private:
 	HANDLE input;
@@ -37,7 +37,7 @@ private:
 	DWORD exitCode;
 	Type type;
 
-	void Create();
+	DWORD Create();
 
 };
 

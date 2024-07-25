@@ -26,9 +26,9 @@ namespace Command
 	};
 
 	// OpenFile for > or >>
-	Result<HANDLE> OpenFileForWrite(const std::string& path, bool append);
+	Result<HANDLE> OpenFileForWrite(const std::wstring& path, bool append);
 	// OpenFile for <
-	Result<HANDLE> OpenFileForRead(const std::string& path);
+	Result<HANDLE> OpenFileForRead(const std::wstring& path);
 	// OpenPipe for |
 	Result<Pipe> OpenPipe();
 
@@ -48,14 +48,14 @@ namespace Command
 	
 
 
-	Result<DWORD> Execute(const std::string& input)
+	Result<DWORD> Execute(const std::wstring& input)
 	{
 		//// TODO
 		//// * More?
 		//// * Error handling and show error message.
 		//// * 2>&1
 		//// * return exit code
-		//// * expand 
+		//// * expand environment variables
 		auto [tokens, tokenErr] = Tokenize(input);
 		if (tokenErr) {
 			return { std::nullopt, tokenErr };
@@ -69,133 +69,6 @@ namespace Command
 		
 
 		auto [code, execErr] = ExecuteCommandSequence(node, true, 0);
-
-
-
-		//// TODO split to block
-		//// echo foo > file | cat  = echo foo | cat
-		//// pipeline
-		//DWORD exitCode = 0;
-
-		//for (auto& pipeline : SplitToPipeline(*nodes)) {
-		//	// execution-unit ::= command | command pipe execution-unit | command redirection pipe execution-unit
-		//	// redirection ::= redirector file | redirectior file redirection
-		//	// redirector  ::= ">" | ">>" | "<"
-		//	// pipe ::= "|"
-		//
-		//	auto combinedCommands = SplitByFlowOperator(pipeline);
-		//	for (auto combinedCommand = combinedCommands.begin(); combinedCommand != combinedCommands.end(); combinedCommand++) {
-		//		
-		//		auto executionUnits = SplitByPipeOperator(*combinedCommand);
-		//		
-		//		Status status = Status::Nothing;
-		//		std::vector<ProcessIoHandle> processes;
-		//		std::optional<Pipe> prevPipe = std::nullopt;
-		//		
-		//		// commands e.g.
-		//		//   {
-		//		//      { cd },
-		//		//      { echo hello world },
-		//		//      { dir | },
-		//		//      { findstr b | }
-		//		//      { echo hello file > filename.txt && }
-		//		//   }
-		//		//  
-		//		for (auto commands = executionUnits.begin(); commands != executionUnits.end(); commands++) {
-		//			// handles for child process
-		//			auto [handles, err] = DuplicateStdHandles();
-		//			if (err) {
-		//				return err;
-		//			}
-		//
-		//			// input
-		//			if (prevPipe) {
-		//				::CloseHandle(handles->in);
-		//				handles->in = prevPipe->toRead;
-		//			}
-		//
-		//			// output and next input
-		//			if (commands->back().type == NodeType::Pipe) {
-		//				auto [pipe, pipeErr] = OpenPipe();
-		//				if (pipeErr) return pipeErr;
-		//				::CloseHandle(handles->out);
-		//				handles->out = pipe->toWrite;
-		//				prevPipe = pipe;
-		//			}
-		//
-		//			
-		//			if (commands + 1 != executionUnits.end()) {
-		//				// left
-		//				auto [process, err] = AsyncExecuteCommand(*commands, handles->in, handles->out, handles->err);
-		//				if (err) {
-		//					return err;
-		//				}
-		//				processes.push_back(*process);
-		//			}
-		//			else {
-		//				// at last ----
-		//				auto [process, err] = AsyncExecuteCommand(*commands, handles->in, handles->out, handles->err);
-		//				if (err) {
-		//					return err;
-		//				}
-		//
-		//				// wait for exit processes
-		//				for (auto& each : processes) {
-		//					auto [code, err] = each.proc->WaitForExit();
-		//					if (err) {
-		//						return err;
-		//					}
-		//					for(auto& h : each.handles) {
-		//						::CloseHandle(h);
-		//					}
-		//				}
-		//				
-		//				// wait for exit current process
-		//				auto [code, waitErr] = process->proc->WaitForExit();
-		//				if (waitErr) {
-		//					return err;
-		//				}
-		//				for (auto& h : process->handles) {
-		//					::CloseHandle(h);
-		//				}
-		//
-		//
-		//				exitCode = *code;
-		//				status = exitCode == ERROR_SUCCESS ? Status::Success : Status::Failure;
-		//				if (exitCode != ERROR_SUCCESS) {
-		//					ShowError(exitCode, handles->err);
-		//				}
-		//
-		//			}
-		//
-		//		}
-		//	
-		//
-		//		// check operator
-		//		switch (combinedCommand->back().type)
-		//		{
-		//		case NodeType::And:
-		//			// "&&" operator
-		//			if (status == Status::Failure) {
-		//				continue;
-		//			}
-		//			break;
-		//		case NodeType::Or:
-		//			// "||" operator
-		//			if (status == Status::Success) {
-		//				continue;
-		//			}
-		//			break;
-		//		case NodeType::Separator:
-		//			// "&" operator
-		//			break;
-		//		default:
-		//			break;
-		//			//return Error(ERROR_INVALID_FUNCTION, "LogicalError Execute@command.cpp");
-		//		}
-		//	}
-		//	
-		//}
 
 		return { code, std::nullopt };
 	}
@@ -271,7 +144,7 @@ namespace Command
 		auto current = node;
 		while (true) {
 			if (current->type != NodeType::Pipe && current->type != NodeType::Command) {
-				return { std::nullopt, Error(ERROR_INVALID_FUNCTION, "Unexpected NodeType ExecuteBombinedCommand@command") };
+				return { std::nullopt, Error(ERROR_INVALID_FUNCTION, L"Unexpected NodeType ExecuteBombinedCommand@command") };
 			}
 
 			// NodeType::Command
@@ -281,7 +154,7 @@ namespace Command
 			}
 			// NodeType::Pipe
 			if (!current->left || current->left->type != NodeType::Command) {
-				return { std::nullopt, Error(ERROR_INVALID_FUNCTION, "Unexpected NodeType ExecuteBombinedCommand@command") };
+				return { std::nullopt, Error(ERROR_INVALID_FUNCTION, L"Unexpected NodeType ExecuteBombinedCommand@command") };
 			}
 			commands.push_back(current->left);
 			current = current->right;
@@ -334,7 +207,7 @@ namespace Command
 			
 			// check
 			if (!prevPipe) {
-				return { std::nullopt, Error(ERROR_INVALID_FUNCTION, "LogicalError ExecuteBombinedCommand@command")};
+				return { std::nullopt, Error(ERROR_INVALID_FUNCTION, L"LogicalError ExecuteBombinedCommand@command")};
 			}
 
 			// Execute
@@ -374,37 +247,37 @@ namespace Command
 	std::tuple<std::shared_ptr<Process>, OptionalError> AsyncExecuteCommand(std::shared_ptr<Node> node, HANDLE inHandle, HANDLE outHandle, HANDLE errHandle)
 	{
 		std::vector<HANDLE> handles{};
-		std::string inFile = "";
-		std::string outFile = "";
-		std::string errFile = "";
+		std::wstring inFile = L"";
+		std::wstring outFile = L"";
+		std::wstring errFile = L"";
 		bool outAppend = false;
 		bool errAppend = false;
 		for (auto& redirect : node->redirections) {
-			if (redirect.op == "<") {
+			if (redirect.op == L"<") {
 				inFile = redirect.file;
 			}
-			else if (redirect.op == ">") {
+			else if (redirect.op == L">") {
 				outFile = redirect.file;
 				outAppend = false;
 			}
-			else if (redirect.op == ">>") {
+			else if (redirect.op == L">>") {
 				outFile = redirect.file;
 				outAppend = true;
 			}
-			else if (redirect.op == "1>") {
+			else if (redirect.op == L"1>") {
 				outFile = redirect.file;
 				outAppend = false;
 			}
-			else if (redirect.op == "1>>") {
+			else if (redirect.op == L"1>>") {
 				outFile = redirect.file;
 				outAppend = true;
 			}
-			else if (redirect.op == "2>") {
+			else if (redirect.op == L"2>") {
 				errFile = redirect.file;
 				errAppend = false;
 
 			}
-			else if (redirect.op == "2>>") {
+			else if (redirect.op == L"2>>") {
 				errFile = redirect.file;
 				errAppend = true;
 			}
@@ -442,28 +315,28 @@ namespace Command
 	}
 
 
-	Result<HANDLE> OpenFileForWrite(const std::string& path, bool append) {
+	Result<HANDLE> OpenFileForWrite(const std::wstring& path, bool append) {
 		SECURITY_ATTRIBUTES sa;
 		sa.nLength = sizeof(sa);
 		sa.lpSecurityDescriptor = nullptr;
 		sa.bInheritHandle = TRUE;
 
 		DWORD creationDisposition = 0;
-		std::string actualPath;
-		if (_stricmp(path.c_str(), "NUL") == 0) {
+		std::wstring actualPath;
+		if (_wcsicmp(path.c_str(), L"NUL") == 0) {
 			creationDisposition = OPEN_EXISTING;
-			actualPath = "NUL";
+			actualPath = L"NUL";
 		}
 		else {
 			creationDisposition = append ? OPEN_ALWAYS : CREATE_ALWAYS;
-			DWORD fullPathLength = ::GetFullPathNameA(path.c_str(), 0, nullptr, nullptr);
-			std::string buf(fullPathLength + 1, '/0');
-			::GetFullPathNameA(path.c_str(), buf.size(), buf.data(), nullptr);
-			actualPath = "\\\\?\\" + buf;
+			DWORD fullPathLength = ::GetFullPathNameW(path.c_str(), 0, nullptr, nullptr);
+			std::wstring buf(fullPathLength + 1, '/0');
+			::GetFullPathNameW(path.c_str(), buf.size(), buf.data(), nullptr);
+			actualPath = L"\\\\?\\" + buf;
 		}
 		
 
-		HANDLE h = ::CreateFileA(
+		HANDLE h = ::CreateFileW(
 			actualPath.c_str(), 
 			GENERIC_WRITE,
 			FILE_SHARE_READ | FILE_SHARE_WRITE,
@@ -474,30 +347,30 @@ namespace Command
 		);
 		if (h == INVALID_HANDLE_VALUE) {
 			auto err = ::GetLastError();
-			return { std::nullopt, Error(err, "Failed to CreateFile OpenFileForWrite@command") };
+			return { std::nullopt, Error(err, L"Failed to CreateFile OpenFileForWrite@command") };
 		}
 		if (append) {
 			if (::SetFilePointer(h, 0, nullptr, FILE_END) == INVALID_SET_FILE_POINTER){
 				auto err = ::GetLastError();
-				return { std::nullopt, Error(err, "Failed to ::SetFilePointer OpenFileForWrite@command") };
+				return { std::nullopt, Error(err, L"Failed to ::SetFilePointer OpenFileForWrite@command") };
 			}
 		}
 		return { h, std::nullopt };
 	}
 
 
-	Result<HANDLE> OpenFileForRead(const std::string& path) {
+	Result<HANDLE> OpenFileForRead(const std::wstring& path) {
 		SECURITY_ATTRIBUTES sa;
 		sa.nLength = sizeof(sa);
 		sa.lpSecurityDescriptor = nullptr;
 		sa.bInheritHandle = TRUE;
 
-		DWORD fullPathLength = ::GetFullPathNameA(path.c_str(), 0, nullptr, nullptr);
-		std::string buf(fullPathLength + 1, '/0');
-		::GetFullPathNameA(path.c_str(), buf.size(), buf.data(), nullptr);
-		std::string actualPath = "\\\\?\\" + buf;
+		DWORD fullPathLength = ::GetFullPathNameW(path.c_str(), 0, nullptr, nullptr);
+		std::wstring buf(fullPathLength + 1, '/0');
+		::GetFullPathNameW(path.c_str(), buf.size(), buf.data(), nullptr);
+		std::wstring actualPath = L"\\\\?\\" + buf;
 		
-		HANDLE h = ::CreateFileA(
+		HANDLE h = ::CreateFileW(
 			actualPath.c_str(),
 			GENERIC_READ,
 			FILE_SHARE_READ | FILE_SHARE_WRITE,
@@ -508,7 +381,7 @@ namespace Command
 		);
 		if (h == INVALID_HANDLE_VALUE) {
 			auto err = ::GetLastError();
-			return { std::nullopt, Error(err, "Failed to CreateFile OpenFileForRead@command") };
+			return { std::nullopt, Error(err, L"Failed to CreateFile OpenFileForRead@command") };
 		}
 		return { h, std::nullopt };
 	}
@@ -524,7 +397,7 @@ namespace Command
 		HANDLE read{};
 		HANDLE write{};
 		if (!::CreatePipe(&read, &write, & security, 0)) {
-			return { std::nullopt, Error(::GetLastError(),  "Failed to ::CreatePipe OpenPipe@command") };
+			return { std::nullopt, Error(::GetLastError(),  L"Failed to ::CreatePipe OpenPipe@command") };
 		}
 
 		// To use handle in child proces

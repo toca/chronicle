@@ -7,14 +7,14 @@ class Prompt
 public:
 	Prompt();
 	~Prompt();
-	std::string Get();
-	std::string GetRawStr();
+	std::wstring Get();
+	std::wstring GetRawStr();
 	SHORT GetCursor();
 	void InputKey(const KEY_EVENT_RECORD& keyEvent);
 	bool NeedUpdate();
 	void ResetUpdateStatus();
 private:
-	std::vector<char> buffer;
+	std::vector<wchar_t> buffer;
 	//std::vector<char>::iterator sentinel;
 	//std::list<char> buffer;
 	//std::list<char>::iterator sentinel;

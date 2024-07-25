@@ -13,19 +13,19 @@ SearchView::SearchView()
 {}
 
 
-std::optional<Error> SearchView::Init(const std::vector<std::string>& histories)
+std::optional<Error> SearchView::Init(const std::vector<std::wstring>& histories)
 {
 	HANDLE oh = ::GetStdHandle(STD_OUTPUT_HANDLE);
 	if (oh == INVALID_HANDLE_VALUE) {
 		auto err = ::GetLastError();
-		return Error(err, "Failed to ::GetStdHandle(STD_OUTPUT_HANDLE");
+		return Error(err, L"Failed to ::GetStdHandle(STD_OUTPUT_HANDLE");
 	}
 	this->stdOutHandle = oh;
 
 	HANDLE ih = ::GetStdHandle(STD_INPUT_HANDLE);
 	if (ih == INVALID_HANDLE_VALUE) {
 		auto err = ::GetLastError();
-		return Error(err, "Failed to ::GetStdHandle(STD_INPUT_HANDLE");
+		return Error(err, L"Failed to ::GetStdHandle(STD_INPUT_HANDLE");
 	}
 	this->stdInHandle = ih;
 
@@ -60,7 +60,7 @@ std::optional<Error> SearchView::Init(const std::vector<std::string>& histories)
 			this->stop = true;
 		}
 	);
-	this->controller->OnCompleted([this](const std::string& s)
+	this->controller->OnCompleted([this](const std::wstring& s)
 		{
 			this->stop = true;
 			this->result = s;
@@ -72,7 +72,7 @@ std::optional<Error> SearchView::Init(const std::vector<std::string>& histories)
 
 
 
-Result<std::string> SearchView::Show(const std::vector<std::string>& histories)
+Result<std::wstring> SearchView::Show(const std::vector<std::wstring>& histories)
 {
 	this->result = std::nullopt;
 
@@ -87,7 +87,7 @@ Result<std::string> SearchView::Show(const std::vector<std::string>& histories)
 	CONSOLE_SCREEN_BUFFER_INFO screenBufInfo{};
 	if (!::GetConsoleScreenBufferInfo(this->stdOutHandle, &screenBufInfo)) {
 		auto err = ::GetLastError();
-		return { std::nullopt, Error(err, "Failed to ::GetConsoleScreenBufferInfo") };
+		return { std::nullopt, Error(err, L"Failed to ::GetConsoleScreenBufferInfo") };
 	}
 
 	this->size = { short(screenBufInfo.srWindow.Right - screenBufInfo.srWindow.Left + 1), short(screenBufInfo.srWindow.Bottom - screenBufInfo.srWindow.Top + 1) };
@@ -134,7 +134,7 @@ std::tuple<std::vector<INPUT_RECORD>, std::optional<Error>> SearchView::Read()
 	this->stdInHandle = ::GetStdHandle(STD_INPUT_HANDLE);
 	DWORD count = 0;
 	if(!::GetNumberOfConsoleInputEvents(this->stdInHandle, &count)) {
-		return { {}, Error(::GetLastError(), "Failed to ::GetNumberOfConsoleInputEvents") };
+		return { {}, Error(::GetLastError(), L"Failed to ::GetNumberOfConsoleInputEvents") };
 	}
 	if (!count) {
 		return { {}, std::nullopt };
@@ -169,7 +169,7 @@ std::optional<Error> SearchView::Render()
 	// > Prompt here
 	// --------------------------------------
 
-	std::vector<std::string> lines{ uint64_t(this->size.Y), "" };
+	std::vector<std::wstring> lines{ uint64_t(this->size.Y), L"" };
 	// --PROMPT--
 	lines[lines.size() - 1] = this->prompt->Get();
 	size_t last = lines.size() - 1 - 1;
@@ -180,10 +180,10 @@ std::optional<Error> SearchView::Render()
 		if (r) {
 			if (r->selected) {
 				// https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences
-				lines[last - lineIndex++] += std::format("\x1b[1m\x1b[31m>\x1b[0m \x1b[1m{}\x1b[0m", r->data);
+				lines[last - lineIndex++] += std::format(L"\x1b[1m\x1b[31m>\x1b[0m \x1b[1m{}\x1b[0m", r->data);
 			}
 			else {
-				lines[last - lineIndex++] += "  " + r->data;
+				lines[last - lineIndex++] += L"  " + r->data;
 			}
 		}
 
@@ -194,7 +194,7 @@ std::optional<Error> SearchView::Render()
 	HANDLE back = this->screenBuffers[this->screenIndex ^ 1];
 	// clear buffer as ' '
 	DWORD written = 0;
-	::FillConsoleOutputCharacterA(back, ' ', this->windowSize.X * this->windowSize.Y, { 0, 0 }, &written);
+	::FillConsoleOutputCharacterA(back, L' ', this->windowSize.X * this->windowSize.Y, { 0, 0 }, &written);
 
 	::SetConsoleCursorPosition(back, { 0, 0 }); // WriteConsole starts to output from cursor pos
 	SHORT y = 0;

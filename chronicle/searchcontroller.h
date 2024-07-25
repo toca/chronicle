@@ -15,12 +15,12 @@ public:
 	~SearchController();
 	void Input(const std::vector<INPUT_RECORD>& inputs);
 	void OnCancel(std::function<void()> callback);
-	void OnCompleted(std::function<void(const std::string&)> callback);
+	void OnCompleted(std::function<void(const std::wstring&)> callback);
 private:
 	std::shared_ptr<Prompt> prompt;
 	std::shared_ptr<Historian> historian;
 	std::function<void()> cancelCallback;
-	std::function<void(const std::string&)> completedCallback;
+	std::function<void(const std::wstring&)> completedCallback;
 	COORD windowSize{};
 };
 

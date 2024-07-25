@@ -13,16 +13,16 @@ class History
 public:
 	History();
 	~History();
-	std::optional<Error> Load(std::istream& stream);
-	std::optional<Error> Dump(std::ostream& stream);
-	void Add(const std::string& line);
-	std::optional<std::string> Older();
-	std::optional<std::string> Newer();
+	std::optional<Error> Load(std::wistream& stream);
+	std::optional<Error> Dump(std::wostream& stream);
+	void Add(const std::wstring& line);
+	std::optional<std::wstring> Older();
+	std::optional<std::wstring> Newer();
 	void Reset();
-	std::vector<std::string> GetAll();
+	std::vector<std::wstring> GetAll();
 private:
-	std::list<std::string> data;
-	std::list<std::string>::iterator current;
+	std::list<std::wstring> data;
+	std::list<std::wstring>::iterator current;
 	uint32_t index = 0;
 
 };

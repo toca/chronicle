@@ -6,16 +6,16 @@
 
 struct Error {
 	DWORD code;
-	const std::string message;
+	const std::wstring message;
 
-    Error(int code, const std::string& message)
+    Error(int code, const std::wstring& message)
         : code(code)
         , message(message) 
     {}
 
-    Error(const Error& other, const std::string& message)
+    Error(const Error& other, const std::wstring& message)
         : code(other.code)
-        , message(std::format("%s\n\t%s", message, other.message))
+        , message(std::format(L"%s\n\t%s", message, other.message))
     {}
 };
 

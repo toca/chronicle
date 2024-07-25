@@ -17,6 +17,7 @@ public:
 	
 private:
 	View(std::shared_ptr<InputBuffer> inputBuffer, std::shared_ptr<PromptGate> promptGate);
+	void Render();
 	void ShowInputBuffer();
 
 	// models
