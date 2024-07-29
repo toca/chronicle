@@ -66,6 +66,10 @@ View::View(std::shared_ptr<InputBuffer> ib)
 
 void View::ShowInputBuffer()
 {
+	if (!this->enabled) {
+		return;
+	}
+
 	// windows size to get screen width
 	auto [windowSize, windowErr] = ConsoleUtil::GetWindowSize();
 	if (windowErr) {
@@ -118,7 +122,10 @@ void View::ShowInputBuffer()
 
 void View::ShowPrompt()
 {
-	// TODO get real prompt?
+	if (!this->enabled) {
+		return;
+	}
+	
 	char buf[MAX_PATH];
 	DWORD pathLen = ::GetCurrentDirectoryA(MAX_PATH, buf);
 	if (pathLen == 0) {
@@ -162,6 +169,11 @@ void View::Renew()
 	// move cursor to new line
 	this->cursorOrigin = { 0, SHORT(info->dwCursorPosition.Y + 1) };
 	::SetConsoleCursorPosition(this->stdOutHandle, this->cursorOrigin);
+}
+
+void View::Enable(bool state)
+{
+	this->enabled = state;
 }
 
 

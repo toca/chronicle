@@ -49,7 +49,6 @@ OptionalError InputBuffer::InputKey(const KEY_EVENT_RECORD& e)
 		if (e.uChar.AsciiChar <= 31) {
 			return std::nullopt;
 		}
-		//this->updated = true;
 		// FIXME max length of input = 1024 
 		if (e.uChar.UnicodeChar != L'\0' && this->buffer.size() < 1024) {
 			for (int i = 0; i < e.wRepeatCount; i++) {
@@ -60,8 +59,6 @@ OptionalError InputBuffer::InputKey(const KEY_EVENT_RECORD& e)
 		}
 		this->OnChanged();
 	}
-	/*this->OnChanged();*/
-	//this->updated = false;
 	return std::nullopt;
 }
 
@@ -89,9 +86,7 @@ void InputBuffer::Set(const std::wstring& s)
 {
 	// TODO move cursor to the end of string
 	this->buffer = std::vector<wchar_t>(s.begin(), s.end());
-	//this->updated = true;
 	this->OnChanged();
-	//this->updated = false;
 }
 
 
@@ -110,14 +105,14 @@ void InputBuffer::ClearInput()
 
 void InputBuffer::SetOnChange(std::function<void(InputBuffer*)> cb)
 {
-	this->callback = cb;
+	this->callbacks.push_back(cb);
 }
 
 
 void InputBuffer::OnChanged()
 {
-	if (this->callback /*&& this->updated*/) {
-		this->callback(this);
+	for (auto& each : this->callbacks) {
+		each(this);
 	}
 }
 
@@ -126,7 +121,6 @@ void InputBuffer::Left()
 {
 	if (0 < this->cursorIndex) {
 		this->cursorIndex--;
-		//this->updated = true;
 		this->OnChanged();
 	}
 }
@@ -135,7 +129,6 @@ void InputBuffer::Right()
 {
 	if (this->cursorIndex < this->buffer.size()) {
 		this->cursorIndex++;
-		//this->updated = true;
 		this->OnChanged();
 	}
 }
@@ -145,7 +138,6 @@ void InputBuffer::Back()
 	if (0 < this->cursorIndex && 0 < this->buffer.size()) {
 		this->buffer.erase(this->buffer.begin() + this->cursorIndex - 1);
 		this->cursorIndex--;
-		//this->updated = true;
 		this->OnChanged();
 	}
 }
@@ -154,7 +146,6 @@ void InputBuffer::Del()
 {
 	if (this->cursorIndex + 1 <= this->buffer.size()) {
 		this->buffer.erase(this->buffer.begin() + this->cursorIndex);
-		//this->updated = true;
 		this->OnChanged();
 	}
 }
@@ -163,7 +154,6 @@ void InputBuffer::Home()
 {
 	if (this->cursorIndex != 0) {
 		this->cursorIndex = 0;
-		//this->updated = true;
 		this->OnChanged();
 	}
 }
@@ -172,7 +162,6 @@ void InputBuffer::End()
 {
 	if (this->cursorIndex != this->buffer.size()) {
 		this->cursorIndex = this->buffer.size();
-		//this->updated = true;
 		this->OnChanged();
 	}
 }

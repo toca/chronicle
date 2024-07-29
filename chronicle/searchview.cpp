@@ -3,7 +3,7 @@
 #include <format>
 
 #include "searchcontroller.h"
-#include "prompt.h"
+#include "inputbuffer.h"
 #include "historian.h"
 #include "title.h"
 
@@ -15,14 +15,14 @@ SearchView::SearchView()
 }
 
 
-Result<SearchView*> SearchView::Create(std::shared_ptr<Prompt> prompt, std::shared_ptr<Historian> historian)
+Result<SearchView*> SearchView::Create(std::shared_ptr<InputBuffer> inputBuffer, std::shared_ptr<Historian> historian)
 {
 	SearchView* self = new SearchView();
 
-	self->prompt = prompt;
+	self->inputBuffer = inputBuffer;
 	self->historian = historian;
 
-	self->prompt->SetOnChanged([self]()
+	self->inputBuffer->SetOnChange([self](auto sender)
 		{
 			self->Render();
 		}
@@ -65,6 +65,10 @@ Result<SearchView*> SearchView::Create(std::shared_ptr<Prompt> prompt, std::shar
 
 std::optional<Error> SearchView::Render()
 {
+	if (!this->enabled) {
+		return std::nullopt;
+	}
+	// TODO input over one line
 	// size
 	CONSOLE_SCREEN_BUFFER_INFOEX infoEx{};
 	infoEx.cbSize = sizeof(CONSOLE_SCREEN_BUFFER_INFOEX);
@@ -87,7 +91,8 @@ std::optional<Error> SearchView::Render()
 
 	std::vector<std::wstring> lines{ uint64_t(this->windowSize.Y), L"" };
 	// --PROMPT--
-	lines[lines.size() - 1] = this->prompt->Get();
+	static const std::wstring p = L"\x1b[96m>\x1b[0m ";
+	lines[lines.size() - 1] = p + this->inputBuffer->Get();
 	size_t last = lines.size() - 1 - 1;
 
 	size_t lineIndex = 0;
@@ -119,7 +124,8 @@ std::optional<Error> SearchView::Render()
 		auto r = ::WriteConsoleA(back, line.data(), line.size() * sizeof(wchar_t), &written, nullptr);
 		::SetConsoleCursorPosition(back, { 0, ++y });
 	}
-	::SetConsoleCursorPosition(back, { this->prompt->GetCursor(), SHORT(this->windowSize.Y - 1) });
+	static const SHORT offset = 2; // length of ' >'
+	::SetConsoleCursorPosition(back, { SHORT(this->inputBuffer->GetCursor() + offset), SHORT(this->windowSize.Y - 1) });
 
 	// change console buffer
 	::SetConsoleActiveScreenBuffer(back);
@@ -129,15 +135,23 @@ std::optional<Error> SearchView::Render()
 }
 
 
-void SearchView::Reset()
-{
-	::SetConsoleActiveScreenBuffer(this->stdOutHandle);
-}
+//void SearchView::Reset()
+//{
+//	::SetConsoleActiveScreenBuffer(this->stdOutHandle);
+//}
 
 
 void SearchView::SetTitle()
 {
 	Title::Set(L"Chronicle ++++ Searching ++++");
+}
+
+void SearchView::Enable(bool state)
+{
+	this->enabled = state;
+	if (!this->enabled) {
+		::SetConsoleActiveScreenBuffer(this->stdOutHandle);
+	}
 }
 
 

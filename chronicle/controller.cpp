@@ -14,6 +14,8 @@ Controller::Controller(
 	, inputBuffer(ib)
 	, history(hi)
 {
+	this->view->Enable(true);
+	this->view->SetTitle();
 	view->ShowPrompt();
 }
 
@@ -81,6 +83,10 @@ void Controller::OnModeChanged(Mode mode)
 {
 	if (mode == Mode::Main) {
 		this->view->SetTitle();
+		this->view->Enable(true);
+	}
+	else {
+		this->view->Enable(false);
 	}
 }
 

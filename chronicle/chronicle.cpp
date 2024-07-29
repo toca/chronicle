@@ -66,7 +66,7 @@ int main()
         std::unique_ptr<Controller> controller(*mcRes);
 
         // search controller
-        auto [scRes, scErr] = SearchController::Create(history);
+        auto [scRes, scErr] = SearchController::Create(inputBuffer, history);
         if (scErr) {
             fwprintf(stderr, L"%s\n", scErr->message.c_str());
             return scErr->code;

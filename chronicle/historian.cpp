@@ -88,7 +88,6 @@ void Historian::Next()
 		this->top++;
 	}
 	this->Updated();
-	//this->updated = true;
 }
 
 
@@ -102,7 +101,6 @@ void Historian::Prev()
 		this->bottom--;
 	}
 	this->Updated();
-	//this->updated = true;
 }
 
 std::optional<std::wstring> Historian::Current()
@@ -127,16 +125,6 @@ int Historian::Bottom()
 	return this->bottom;
 }
 
-//bool Historian::NeedUpdate()
-//{
-//	return this->updated;
-//}
-//
-//
-//void Historian::ResetUpdateStatus()
-//{
-//	this->updated = false;
-//}
 
 const std::vector<std::wstring>& Historian::Data()
 {

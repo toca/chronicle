@@ -16,6 +16,7 @@ public:
 	void ShowPrompt();
 	void SetTitle();
 	void Renew();
+	void Enable(bool state);
 	
 private:
 	View(std::shared_ptr<InputBuffer> inputBuffer);
@@ -24,6 +25,7 @@ private:
 	// models
 	std::shared_ptr<InputBuffer> inputBuffer;
 
+	bool enabled = false;
 	HANDLE stdOutHandle{};
 	HANDLE stdInHandle{};
 	COORD cursorOrigin{};

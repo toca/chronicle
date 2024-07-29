@@ -1,6 +1,6 @@
 #include "searchcontroller.h"
 #include "searchview.h"
-#include "prompt.h"
+#include "inputbuffer.h"
 #include "historian.h"
 #include "history.h"
 #include "title.h"
@@ -8,27 +8,26 @@
 
 SearchController::SearchController(
 	std::shared_ptr<SearchView> view,
-	std::shared_ptr<Prompt> prompt,
+	std::shared_ptr<InputBuffer> inputBuffer,
 	std::shared_ptr<Historian> historian, 
 	std::shared_ptr<History> history
 )
 	: view(view)
-	, prompt(prompt)
+	, inputBuffer(inputBuffer)
 	, historian(historian)
 	, history(history)
 {
 }
 
 
-Result<SearchController*> SearchController::Create(std::shared_ptr<History> history)
+Result<SearchController*> SearchController::Create(std::shared_ptr<InputBuffer> inputBuffer, std::shared_ptr<History> history)
 {
-	auto prompt = std::make_shared<Prompt>();
 	auto historian = std::make_shared<Historian>();
-	auto [res, err] = SearchView::Create(prompt, historian);
+	auto [res, err] = SearchView::Create(inputBuffer, historian);
 	if (err) {
 		return { std::nullopt, err };
 	}
-	SearchController* self = new SearchController(std::shared_ptr<SearchView>(*res), prompt, historian, history);
+	SearchController* self = new SearchController(std::shared_ptr<SearchView>(*res), inputBuffer, historian, history);
 	return { self, std::nullopt };
 }
 
@@ -43,7 +42,7 @@ void SearchController::Input(const std::vector<INPUT_RECORD>& inputs)
 	for (auto& each : inputs) {
 		switch (each.EventType) {
 			case KEY_EVENT:
-				this->prompt->InputKey(each.Event.KeyEvent);
+				this->inputBuffer->InputKey(each.Event.KeyEvent);
 
 				if (!each.Event.KeyEvent.bKeyDown) {
 					continue;
@@ -52,7 +51,8 @@ void SearchController::Input(const std::vector<INPUT_RECORD>& inputs)
 				switch (each.Event.KeyEvent.wVirtualKeyCode) {
 					case VK_ESCAPE:
 						SetMode(Mode::Main);
-						this->view->Reset();
+						this->view->Enable(false);
+						this->inputBuffer->Set(this->inputting);
 						return;
 					case VK_UP:
 						this->historian->Next();
@@ -62,8 +62,14 @@ void SearchController::Input(const std::vector<INPUT_RECORD>& inputs)
 						break;
 					case VK_RETURN:
 					{
+						SetMode(Mode::Main);
 						auto result = this->historian->Current();
-
+						if (result) {
+							this->inputBuffer->Set(*result);
+						}
+						else {
+							this->inputBuffer->Set(this->inputting);
+						}
 						break;
 					}
 					default:
@@ -72,7 +78,7 @@ void SearchController::Input(const std::vector<INPUT_RECORD>& inputs)
 				}
 			
 				// filter histories
-				this->historian->Filter(this->prompt->GetRawStr());
+				this->historian->Filter(this->inputBuffer->Get());
 				
 				break;
 			case WINDOW_BUFFER_SIZE_EVENT:
@@ -85,10 +91,6 @@ void SearchController::Input(const std::vector<INPUT_RECORD>& inputs)
 				{
 					break;
 				}
-				//if (!this->cancelCallback) {
-				//	break;
-				//}
-				//this->cancelCallback();
 				break;
 			default:
 				break;
@@ -101,8 +103,12 @@ void SearchController::OnModeChanged(Mode mode)
 {
 	if (mode == Mode::Search) {
 		this->view->SetTitle();
-		this->prompt->Clear();
+		this->view->Enable(true);
+		this->inputting = this->inputBuffer->Get();
 		this->historian->SetData(this->history->GetAll());
+	}
+	else {
+		this->view->Enable(false);
 	}
 }
 

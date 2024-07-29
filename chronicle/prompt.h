@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 #include <functional>
+
+// TODO Remove
 class Prompt
 {
 public:

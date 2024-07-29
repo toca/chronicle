@@ -22,7 +22,7 @@ public:
 private:
 	std::vector<wchar_t> buffer{};
 	SHORT cursorIndex = 0;
-	std::function<void(InputBuffer*)> callback;
+	std::vector<std::function<void(InputBuffer*)>> callbacks;
 	bool updated = false;
 
 	void OnChanged();
