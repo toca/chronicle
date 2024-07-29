@@ -14,25 +14,19 @@ class Historian;
 class SearchView
 {
 public:
-	SearchView();
+	static Result<SearchView*> Create(std::shared_ptr<Prompt> prompt, std::shared_ptr<Historian> historian);
 	~SearchView();
-	Result<std::wstring> Show(const std::vector<std::wstring>& histories);
-	void Stop();
-	std::tuple<std::vector<INPUT_RECORD>, std::optional<Error>> Read();
 	std::optional<Error> Render();
+	void Reset();
+	void SetTitle();
 private:
-	std::optional<Error> Init(const std::vector<std::wstring>& histories);
+	SearchView();
 
-	// Controller
-	std::unique_ptr<SearchController> controller;
 	// Models
 	std::shared_ptr<Prompt> prompt;
 	std::shared_ptr<Historian> historian;
 
-	std::optional<std::wstring> result = std::nullopt;
-	COORD size;
 	HANDLE stdOutHandle{};
-	HANDLE stdInHandle{};
 	HANDLE screenBuffers[2];
 	COORD windowSize{};
 	COORD cursorPos{};
@@ -40,8 +34,4 @@ private:
 	uint32_t row = 0;
 	uint32_t col = 0;
 
-	bool stop = false;
-	bool updated = false;
-
 };
-

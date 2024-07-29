@@ -1,19 +1,38 @@
 #include "controller.h"
+#include "view.h"
 #include "inputbuffer.h"
 #include "command.h"
-#include "promptgate.h"
 #include "history.h"
+#include "mode.h"
 
-Controller::Controller(std::shared_ptr<InputBuffer> ib, std::shared_ptr<PromptGate> pg, std::shared_ptr<History> hist)
-	: inputBuffer(ib)
-	, promptGate(pg)
-	, history(hist)
+Controller::Controller(
+	std::shared_ptr<View> v,
+	std::shared_ptr<InputBuffer> ib,
+	std::shared_ptr<History> hi
+)
+	: view(v)
+	, inputBuffer(ib)
+	, history(hi)
 {
+	view->ShowPrompt();
 }
+
+
+Result<Controller*> Controller::Create(std::shared_ptr<InputBuffer> inputBuffer, std::shared_ptr<History> history)
+{
+	auto [res, err] = View::Create(inputBuffer);
+	if (err) {
+		return { std::nullopt, err };
+	}
+	Controller* self = new Controller(std::shared_ptr<View>(*res), inputBuffer, history);
+	return { self, std::nullopt };
+}
+
 
 Controller::~Controller()
 {
 }
+
 
 OptionalError Controller::Input(const std::vector<INPUT_RECORD>& inputs)
 {
@@ -35,6 +54,12 @@ OptionalError Controller::Input(const std::vector<INPUT_RECORD>& inputs)
 				else if (each.Event.KeyEvent.wVirtualKeyCode == VK_RETURN) {
 					this->Enter();
 				}
+				else if (
+					each.Event.KeyEvent.wVirtualKeyCode == VkKeyScanA('r') &&
+					(each.Event.KeyEvent.dwControlKeyState & LEFT_CTRL_PRESSED || each.Event.KeyEvent.dwControlKeyState & RIGHT_CTRL_PRESSED)
+				) {
+					SetMode(Mode::Search);
+				}
 			}
 			break;
 		case MOUSE_EVENT:
@@ -50,6 +75,13 @@ OptionalError Controller::Input(const std::vector<INPUT_RECORD>& inputs)
 		}
 	}
 	return OptionalError();
+}
+
+void Controller::OnModeChanged(Mode mode)
+{
+	if (mode == Mode::Main) {
+		this->view->SetTitle();
+	}
 }
 
 void Controller::Up()
@@ -72,17 +104,18 @@ void Controller::Down()
 
 void Controller::Enter()
 {
- 	printf("\n");
-	const std::wstring command =  inputBuffer->GetCommand();
+	const std::wstring command = inputBuffer->GetCommand();
+	this->view->Renew();
+ 	//wprintf(L"%s\n", command.c_str());
 	if (!command.empty()) {
 		auto [code, err] = Command::Execute(command);
 		if (err) {
 			fwprintf(stderr, L"%s: %d\n", err->message.c_str(), err->code);
-			// show error in Command or View
+			// show error in Command or View?
 		}
+		this->view->Renew();
 		this->inputBuffer->ClearInput();
-		printf("\n");
 	}
-	this->promptGate->GetReady();
+	this->view->ShowPrompt();
 }
 

@@ -5,24 +5,24 @@
 
 // prototype
 class InputBuffer;
-class PromptGate;
+//class PromptGate;
 
 class View
 {
 public:
 	~View();
 
-	static Result<View*> Create(std::shared_ptr<InputBuffer> inputBuffer, std::shared_ptr<PromptGate> promptGate);
+	static Result<View*> Create(std::shared_ptr<InputBuffer> inputBuffer);
 	void ShowPrompt();
+	void SetTitle();
+	void Renew();
 	
 private:
-	View(std::shared_ptr<InputBuffer> inputBuffer, std::shared_ptr<PromptGate> promptGate);
-	void Render();
+	View(std::shared_ptr<InputBuffer> inputBuffer);
 	void ShowInputBuffer();
 
 	// models
 	std::shared_ptr<InputBuffer> inputBuffer;
-	std::shared_ptr<PromptGate> promptGate;
 
 	HANDLE stdOutHandle{};
 	HANDLE stdInHandle{};

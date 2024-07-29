@@ -51,78 +51,84 @@ void Prompt::InputKey(const KEY_EVENT_RECORD& e)
 		if (0 < this->cursorIndex && 0 < this->buffer.size()) {
 			this->buffer.erase(this->buffer.begin() + this->cursorIndex - 1);
 			this->cursorIndex--;
-			this->updated = true;
+			this->Updated();
 		}
 		break;
 	case VK_DELETE:
 		if (this->cursorIndex + 1 <= this->buffer.size()) {
 			this->buffer.erase(this->buffer.begin() + this->cursorIndex);
-			this->updated = true;
+			this->Updated();
 		}
 		break;
 	case VK_HOME:
 		this->cursorIndex = 0;
-		this->updated = true;
+		this->Updated();
 		break;
 	case VK_END:
 		this->cursorIndex = this->buffer.size();
-		this->updated = true;
+		this->Updated();
 		break;
 	case VK_TAB:
 		break;
 	case VK_RETURN:
 		break;
-	//case VK_SPACE:
-		//break;
-	//case VK_UP:
-		//break;
-	//case VK_DOWN:
-		//break;
+	case VK_ESCAPE:
+		break;
 	case VK_LEFT:
 			this->Left();
 		break;
 	case VK_RIGHT:
 			this->Right();
 		break;
-	//case VK_ESCAPE:
-		//break;
-	//case VK_TAB:
-		//break;
 	default:
-		// max length of input = 32
-		if (e.uChar.AsciiChar != L'\0' && this->buffer.size() < 32) {
-			this->updated = true;
+		// max length of input = 64
+		if (e.uChar.AsciiChar != L'\0' && this->buffer.size() < 64) {
+			//this->updated = true;
 			for (int i = 0; i < e.wRepeatCount; i++) {
 				auto it = this->buffer.begin();
 				this->buffer.insert(it + this->cursorIndex, e.uChar.UnicodeChar);
 				this->cursorIndex++;
 			}
+			this->Updated();
 		}
 	}
 }
 
-bool Prompt::NeedUpdate()
+
+void Prompt::Clear()
 {
-	return this->updated;
+	this->buffer.clear();
+	this->Updated();
 }
 
-void Prompt::ResetUpdateStatus()
+
+void Prompt::SetOnChanged(std::function<void()> cb)
 {
-	this->updated = false;
+	this->callback = cb;
 }
+
+
+void Prompt::Updated()
+{
+	if (this->callback) {
+		this->callback();
+	}
+}
+
 
 void Prompt::Left()
 {
 	if (0 < this->cursorIndex) {
 		this->cursorIndex--;
-		this->updated = true;
+		this->Updated();
 	}
 }
+
 
 void Prompt::Right()
 {
 	if (this->cursorIndex < this->buffer.size()) {
 		this->cursorIndex++;
-		this->updated = true;
+		this->Updated();
 	}
 }

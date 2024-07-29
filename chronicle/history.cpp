@@ -15,7 +15,7 @@ History::~History()
 std::optional<Error> History::Load(std::wistream& stream)
 {
 	// stream ----
-	// newest <- end
+	// newest <- end - 0
 	// 2nd    <- end - 1
 	// 3rd    <- end - 2
 	int count = 0;

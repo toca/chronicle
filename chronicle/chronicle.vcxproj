@@ -147,11 +147,13 @@
     <ClCompile Include="command.cpp" />
     <ClCompile Include="consoleutil.cpp" />
     <ClCompile Include="controller.cpp" />
+    <ClCompile Include="errorlevel.cpp" />
     <ClCompile Include="historian.cpp" />
     <ClCompile Include="history.cpp" />
     <ClCompile Include="inputbuffer.cpp" />
     <ClCompile Include="internalcommand.cpp" />
     <ClCompile Include="keyhooker.cpp" />
+    <ClCompile Include="mode.cpp" />
     <ClCompile Include="parser.cpp" />
     <ClCompile Include="process.cpp" />
     <ClCompile Include="prompt.cpp" />
@@ -160,6 +162,7 @@
     <ClCompile Include="searchview.cpp" />
     <ClCompile Include="ShellCommandDelegate.cpp" />
     <ClCompile Include="stringutil.cpp" />
+    <ClCompile Include="title.cpp" />
     <ClCompile Include="tokenize.cpp" />
     <ClCompile Include="view.cpp" />
   </ItemGroup>
@@ -169,11 +172,13 @@
     <ClInclude Include="controller.h" />
     <ClInclude Include="defer.h" />
     <ClInclude Include="error.h" />
+    <ClInclude Include="errorlevel.h" />
     <ClInclude Include="historian.h" />
     <ClInclude Include="history.h" />
     <ClInclude Include="inputbuffer.h" />
     <ClInclude Include="internalcommand.h" />
     <ClInclude Include="keyhooker.h" />
+    <ClInclude Include="mode.h" />
     <ClInclude Include="node.h" />
     <ClInclude Include="parser.h" />
     <ClInclude Include="process.h" />
@@ -186,6 +191,7 @@
     <ClInclude Include="shellcommanddelegate.h" />
     <ClInclude Include="stringutil.h" />
     <ClInclude Include="taskqueue.h" />
+    <ClInclude Include="title.h" />
     <ClInclude Include="tokenize.h" />
     <ClInclude Include="view.h" />
   </ItemGroup>

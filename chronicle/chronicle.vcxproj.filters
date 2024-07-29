@@ -75,6 +75,15 @@
     <ClCompile Include="tokenize.cpp">
       <Filter>command</Filter>
     </ClCompile>
+    <ClCompile Include="errorlevel.cpp">
+      <Filter>command</Filter>
+    </ClCompile>
+    <ClCompile Include="mode.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="title.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="shellcommanddelegate.h">
@@ -147,6 +156,15 @@
       <Filter>command</Filter>
     </ClInclude>
     <ClInclude Include="node.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="errorlevel.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="mode.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="title.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
   </ItemGroup>

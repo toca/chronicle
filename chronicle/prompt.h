@@ -2,6 +2,7 @@
 #include <Windows.h>
 #include <string>
 #include <vector>
+#include <functional>
 class Prompt
 {
 public:
@@ -11,17 +12,13 @@ public:
 	std::wstring GetRawStr();
 	SHORT GetCursor();
 	void InputKey(const KEY_EVENT_RECORD& keyEvent);
-	bool NeedUpdate();
-	void ResetUpdateStatus();
+	void Clear();
+	void SetOnChanged(std::function<void()> callback);
 private:
 	std::vector<wchar_t> buffer;
-	//std::vector<char>::iterator sentinel;
-	//std::list<char> buffer;
-	//std::list<char>::iterator sentinel;
-	//std::list<char>::iterator current;
+	std::function<void()> callback;
 	SHORT cursorIndex = 0;
-	bool updated = true;
-
+	void Updated();
 	void Left();
 	void Right();
 };

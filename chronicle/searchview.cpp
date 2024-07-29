@@ -1,49 +1,57 @@
 #include "searchview.h"
+#include <vector>
+#include <format>
+
 #include "searchcontroller.h"
 #include "prompt.h"
 #include "historian.h"
+#include "title.h"
 
-#include <vector>
-#include <format>
 
 
 SearchView::SearchView() 
 	: screenBuffers{ INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE }
-	, size({0, 0})
-{}
-
-
-std::optional<Error> SearchView::Init(const std::vector<std::wstring>& histories)
 {
+}
+
+
+Result<SearchView*> SearchView::Create(std::shared_ptr<Prompt> prompt, std::shared_ptr<Historian> historian)
+{
+	SearchView* self = new SearchView();
+
+	self->prompt = prompt;
+	self->historian = historian;
+
+	self->prompt->SetOnChanged([self]()
+		{
+			self->Render();
+		}
+	);
+	self->historian->SetOnChanged([self]()
+		{
+			self->Render();
+		}
+	);
+
 	HANDLE oh = ::GetStdHandle(STD_OUTPUT_HANDLE);
 	if (oh == INVALID_HANDLE_VALUE) {
 		auto err = ::GetLastError();
-		return Error(err, L"Failed to ::GetStdHandle(STD_OUTPUT_HANDLE");
+		return { std::nullopt, Error(err, L"Failed to ::GetStdHandle(STD_OUTPUT_HANDLE") };
 	}
-	this->stdOutHandle = oh;
+	self->stdOutHandle = oh;
 
 	HANDLE ih = ::GetStdHandle(STD_INPUT_HANDLE);
 	if (ih == INVALID_HANDLE_VALUE) {
 		auto err = ::GetLastError();
-		return Error(err, L"Failed to ::GetStdHandle(STD_INPUT_HANDLE");
+		return { std::nullopt, Error(err, L"Failed to ::GetStdHandle(STD_INPUT_HANDLE") };
 	}
-	this->stdInHandle = ih;
 
-
-	// size
-	CONSOLE_SCREEN_BUFFER_INFOEX infoEx{};
-	infoEx.cbSize = sizeof(CONSOLE_SCREEN_BUFFER_INFOEX);
-	::GetConsoleScreenBufferInfoEx(this->stdOutHandle, &infoEx);
-
-	this->col = infoEx.srWindow.Right + 1;
-	this->row = infoEx.srWindow.Bottom + 1;
-	this->windowSize = { short(this->col), short(this->row) };
-
+	
 	// screen buffer
 	HANDLE buffer1 = ::CreateConsoleScreenBuffer(GENERIC_READ | GENERIC_WRITE, 0, nullptr, CONSOLE_TEXTMODE_BUFFER, nullptr);
 	HANDLE buffer2 = ::CreateConsoleScreenBuffer(GENERIC_READ | GENERIC_WRITE, 0, nullptr, CONSOLE_TEXTMODE_BUFFER, nullptr);
-	this->screenBuffers[0] = buffer1;
-	this->screenBuffers[1] = buffer2;
+	self->screenBuffers[0] = buffer1;
+	self->screenBuffers[1] = buffer2;
 
 	DWORD mode = 0;
 	::GetConsoleMode(buffer1, &mode);
@@ -51,115 +59,23 @@ std::optional<Error> SearchView::Init(const std::vector<std::wstring>& histories
 	::SetConsoleMode(buffer1, mode);
 	::SetConsoleMode(buffer2, mode);
 
-	// init controller and models
-	this->prompt = std::make_shared<Prompt>();
-	this->historian = std::make_shared<Historian>(histories, this->windowSize.Y - 1);
-	this->controller = std::make_unique<SearchController>(this->prompt, this->historian);
-	this->controller->OnCancel([this]()
-		{
-			this->stop = true;
-		}
-	);
-	this->controller->OnCompleted([this](const std::wstring& s)
-		{
-			this->stop = true;
-			this->result = s;
-		}
-	);
-
-	return std::nullopt;
+	return { self, std::nullopt };
 }
-
-
-
-Result<std::wstring> SearchView::Show(const std::vector<std::wstring>& histories)
-{
-	this->result = std::nullopt;
-
-	std::string title(1024, '\0');
-	::GetConsoleTitleA(title.data(), title.size());
-	::SetConsoleTitleA("Chronicle ++++ Searching ++++");
-	const auto error = this->Init(histories);
-	if (error) {
-		return { std::nullopt, error };
-	}
-	
-	CONSOLE_SCREEN_BUFFER_INFO screenBufInfo{};
-	if (!::GetConsoleScreenBufferInfo(this->stdOutHandle, &screenBufInfo)) {
-		auto err = ::GetLastError();
-		return { std::nullopt, Error(err, L"Failed to ::GetConsoleScreenBufferInfo") };
-	}
-
-	this->size = { short(screenBufInfo.srWindow.Right - screenBufInfo.srWindow.Left + 1), short(screenBufInfo.srWindow.Bottom - screenBufInfo.srWindow.Top + 1) };
-
-
-	// main loop ---- ---- ---- ----
-	this->stop = false;
-	while (!this->stop) {
-		auto [inputs, err] = this->Read();
-		if (err) {
-			return { std::nullopt, err };
-		}
-		this->controller->Input(inputs);
-
-		this->Render();
-		Sleep(10);
-	}
-	// loop end ---- ---- ---- ----
-	// stop
-	::SetConsoleActiveScreenBuffer(this->stdOutHandle);
-
-	// restore title
-	::SetConsoleTitleA(title.c_str());
-	return { this->result, std::nullopt };
-}
-
-
-
-void SearchView::Stop()
-{
-	this->stop = true;
-}
-
-
-std::tuple<std::vector<INPUT_RECORD>, std::optional<Error>> SearchView::Read()
-{
-	// close if size change
-	//          escape
-	//          mouse input? etc...
-	// read input
-	// managre buffer, cursor, bs, delete, etc...
-	// history finder set 
-
-	this->stdInHandle = ::GetStdHandle(STD_INPUT_HANDLE);
-	DWORD count = 0;
-	if(!::GetNumberOfConsoleInputEvents(this->stdInHandle, &count)) {
-		return { {}, Error(::GetLastError(), L"Failed to ::GetNumberOfConsoleInputEvents") };
-	}
-	if (!count) {
-		return { {}, std::nullopt };
-	}
-	std::vector<INPUT_RECORD> inputs(count);
-	DWORD len = DWORD(inputs.size());
-	DWORD numOfEvents = 0;
-
-	::ReadConsoleInputA(this->stdInHandle, inputs.data(), len, &numOfEvents);
-	return { inputs, std::nullopt };
-
-}
-
 
 
 std::optional<Error> SearchView::Render()
 {
-	// check models updated
-	if (!this->prompt->NeedUpdate() && !this->historian->NeedUpdate()) {
-		return std::nullopt;
-	}
-	this->prompt->ResetUpdateStatus();
-	this->historian->ResetUpdateStatus();
+	// size
+	CONSOLE_SCREEN_BUFFER_INFOEX infoEx{};
+	infoEx.cbSize = sizeof(CONSOLE_SCREEN_BUFFER_INFOEX);
+	::GetConsoleScreenBufferInfoEx(this->stdOutHandle, &infoEx);
 
-	
+	this->col = infoEx.srWindow.Right - infoEx.srWindow.Left + 1;
+	this->row = infoEx.srWindow.Bottom - infoEx.srWindow.Top + 1;
+	this->windowSize = { short(this->col), short(this->row) };
+
+	this->historian->SetMaxRowCount(this->windowSize.Y - 1);
+
 	// --------------------------------------
 	//   5th item
 	//   4th item
@@ -169,7 +85,7 @@ std::optional<Error> SearchView::Render()
 	// > Prompt here
 	// --------------------------------------
 
-	std::vector<std::wstring> lines{ uint64_t(this->size.Y), L"" };
+	std::vector<std::wstring> lines{ uint64_t(this->windowSize.Y), L"" };
 	// --PROMPT--
 	lines[lines.size() - 1] = this->prompt->Get();
 	size_t last = lines.size() - 1 - 1;
@@ -200,16 +116,28 @@ std::optional<Error> SearchView::Render()
 	SHORT y = 0;
 	for (auto& line : lines) {
 		DWORD written = 0;
-		auto r = ::WriteConsoleA(back, line.data(), line.size(), &written, nullptr);
+		auto r = ::WriteConsoleA(back, line.data(), line.size() * sizeof(wchar_t), &written, nullptr);
 		::SetConsoleCursorPosition(back, { 0, ++y });
 	}
-	::SetConsoleCursorPosition(back, { this->prompt->GetCursor(), SHORT(this->size.Y - 1) });
+	::SetConsoleCursorPosition(back, { this->prompt->GetCursor(), SHORT(this->windowSize.Y - 1) });
 
 	// change console buffer
 	::SetConsoleActiveScreenBuffer(back);
 	this->screenIndex ^= 1;
 
 	return std::nullopt;
+}
+
+
+void SearchView::Reset()
+{
+	::SetConsoleActiveScreenBuffer(this->stdOutHandle);
+}
+
+
+void SearchView::SetTitle()
+{
+	Title::Set(L"Chronicle ++++ Searching ++++");
 }
 
 

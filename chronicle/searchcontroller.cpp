@@ -1,16 +1,42 @@
 #include "searchcontroller.h"
+#include "searchview.h"
 #include "prompt.h"
 #include "historian.h"
+#include "history.h"
+#include "title.h"
+#include "mode.h"
 
-SearchController::SearchController(std::shared_ptr<Prompt> p, std::shared_ptr<Historian> h)
-	: prompt(p)
-	, historian(h)
+SearchController::SearchController(
+	std::shared_ptr<SearchView> view,
+	std::shared_ptr<Prompt> prompt,
+	std::shared_ptr<Historian> historian, 
+	std::shared_ptr<History> history
+)
+	: view(view)
+	, prompt(prompt)
+	, historian(historian)
+	, history(history)
 {
 }
+
+
+Result<SearchController*> SearchController::Create(std::shared_ptr<History> history)
+{
+	auto prompt = std::make_shared<Prompt>();
+	auto historian = std::make_shared<Historian>();
+	auto [res, err] = SearchView::Create(prompt, historian);
+	if (err) {
+		return { std::nullopt, err };
+	}
+	SearchController* self = new SearchController(std::shared_ptr<SearchView>(*res), prompt, historian, history);
+	return { self, std::nullopt };
+}
+
 
 SearchController::~SearchController()
 {
 }
+
 
 void SearchController::Input(const std::vector<INPUT_RECORD>& inputs)
 {
@@ -25,8 +51,9 @@ void SearchController::Input(const std::vector<INPUT_RECORD>& inputs)
 
 				switch (each.Event.KeyEvent.wVirtualKeyCode) {
 					case VK_ESCAPE:
-						if (this->cancelCallback) this->cancelCallback();
-						break;
+						SetMode(Mode::Main);
+						this->view->Reset();
+						return;
 					case VK_UP:
 						this->historian->Next();
 						break;
@@ -36,7 +63,7 @@ void SearchController::Input(const std::vector<INPUT_RECORD>& inputs)
 					case VK_RETURN:
 					{
 						auto result = this->historian->Current();
-						if (result && this->completedCallback) this->completedCallback(*result);
+
 						break;
 					}
 					default:
@@ -45,9 +72,8 @@ void SearchController::Input(const std::vector<INPUT_RECORD>& inputs)
 				}
 			
 				// filter histories
-				if (this->prompt->NeedUpdate()) {
-					this->historian->Filter(this->prompt->GetRawStr());
-				}
+				this->historian->Filter(this->prompt->GetRawStr());
+				
 				break;
 			case WINDOW_BUFFER_SIZE_EVENT:
 				if (this->windowSize.X == 0 && this->windowSize.Y == 0) {
@@ -59,10 +85,10 @@ void SearchController::Input(const std::vector<INPUT_RECORD>& inputs)
 				{
 					break;
 				}
-				if (!this->cancelCallback) {
-					break;
-				}
-				this->cancelCallback();
+				//if (!this->cancelCallback) {
+				//	break;
+				//}
+				//this->cancelCallback();
 				break;
 			default:
 				break;
@@ -70,12 +96,13 @@ void SearchController::Input(const std::vector<INPUT_RECORD>& inputs)
 	}
 }
 
-void SearchController::OnCancel(std::function<void()> callback)
+
+void SearchController::OnModeChanged(Mode mode)
 {
-	this->cancelCallback = callback;
+	if (mode == Mode::Search) {
+		this->view->SetTitle();
+		this->prompt->Clear();
+		this->historian->SetData(this->history->GetAll());
+	}
 }
 
-void SearchController::OnCompleted(std::function<void(const std::wstring&)> callback)
-{
-	this->completedCallback = callback;
-}

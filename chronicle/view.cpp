@@ -12,11 +12,13 @@
 #include "result.h"
 #include "inputbuffer.h"
 #include "promptgate.h"
+#include "errorlevel.h"
+#include "title.h"
 
 
-Result<View*> View::Create(std::shared_ptr<InputBuffer> inputBuffer, std::shared_ptr<PromptGate> promptGate)
+Result<View*> View::Create(std::shared_ptr<InputBuffer> inputBuffer)
 {
-	View* self = new View(inputBuffer, promptGate);
+	View* self = new View(inputBuffer);
 
 	// std handles
 	HANDLE oh = ::GetStdHandle(STD_OUTPUT_HANDLE);
@@ -48,13 +50,7 @@ Result<View*> View::Create(std::shared_ptr<InputBuffer> inputBuffer, std::shared
 	// subscription
 	inputBuffer->SetOnChange([self](InputBuffer*)
 		{
-			self->Render();
-			//self->ShowInputBuffer();
-		}
-	);
-	promptGate->SetOnReady([self](PromptGate*)
-		{
-			self->ShowPrompt();
+			self->ShowInputBuffer();
 		}
 	);
 
@@ -62,14 +58,13 @@ Result<View*> View::Create(std::shared_ptr<InputBuffer> inputBuffer, std::shared
 }
 
 
-View::View(std::shared_ptr<InputBuffer> ib, std::shared_ptr<PromptGate> pg)
+View::View(std::shared_ptr<InputBuffer> ib)
 	: inputBuffer(ib)
-	, promptGate(pg)
 {
 }
 
 
-void View::Render()
+void View::ShowInputBuffer()
 {
 	// windows size to get screen width
 	auto [windowSize, windowErr] = ConsoleUtil::GetWindowSize();
@@ -99,6 +94,7 @@ void View::Render()
 		fwprintf(stderr, L"Failed to ::SetConsoleCursorPosition: %d\n", err);
 		return;
 	}
+
 	// padding write ' ' to the end
 	auto [endPos, endPosErr] = ConsoleUtil::CalcCoord(this->cursorOrigin, StringUtil::GetDisplayWidth(data));
 	if (endPosErr) {
@@ -115,85 +111,8 @@ void View::Render()
 		fwprintf(stderr, L"Failed to ::CalcDistance\n\t%s (%d)\n", distErr->message.c_str(), distErr->code);
 		return;
 	}
-	std::wstring padding(*remaining, L' ');
 	written = 0;
-	::WriteConsoleOutputCharacterW(this->stdOutHandle, padding.data(), padding.size(), *endPos, &written);
-}
-
-
-void View::ShowInputBuffer()
-{
-	// WriteConsole ... Writes a character string to a console screen buffer beginning at the current cursor location.
-	// WriteConsoleOutputCharacter  ... Copies a number of characters to consecutive cells of a console screen buffer, beginning at a specified location.
-	
-	//SHORT dx = 0;
-	//SHORT dy = 0;
-
-	//// windows size to get screen width
-	//auto [ windowSize, windowErr ] = ConsoleUtil::GetWindowSize();
-	//if (windowErr) {
-	//	fprintf(stderr, "Failed to GetWindowSize\n\t%s (%d)\n", windowErr->message.c_str(), windowErr->code);
-	//	return;
-	//}
-
-
-	//// output
-	//auto width = windowSize->X;
-	//std::string data = this->inputBuffer->Get();
-	//// FIXME if string has 2 \r
-	//bool newLine = data.find('\r') != std::string::npos;
-	//// proc each width
-	//for (size_t i = 0; i < data.size(); i += width) {
-	//	std::string line = data.substr(i, width); // +'\r';
-	//	DWORD written = 0;
-	//	if (!::WriteConsoleOutputCharacterA(this->stdOutHandle, line.data(), line.size(), { this->cursorOrigin.X, SHORT(this->cursorOrigin.Y + dy)}, &written)) {
-	//		auto err = ::GetLastError();
-	//		fprintf(stderr, "Failed to ::WriteConsoleOutputCharacterA: %d\n", err);
-	//		return;
-	//	}
-	//	// ‚Ç‚Á‚¿‚à‚¿‚ª‚¤‚æH
-	//	dx = line.size();
-	//	dy = i;
-	//}
-	//	
-	//
-	//if (newLine) {
-	//	if (!::SetConsoleCursorPosition(this->stdOutHandle, { 0, SHORT(this->cursorOrigin.Y + dy) })) {
-	//		auto err = ::GetLastError();
-	//		fprintf(stderr, "Failed to ::SetConsoleCursorPosition: %d\n", err);
-	//	}
-	//	else {
-	//		this->cursorOrigin = { 0, SHORT(this->cursorOrigin.Y + dy) };
-	//	}
-	//	return;
-	//}
-
-	//// set cursor
-	//auto [newCursorPos, cursorErr] = ConsoleUtil::CalcCoord(this->cursorOrigin, this->inputBuffer->GetCursor());
-	//if (cursorErr) {
-	//	fprintf(stderr, "Failed to CalcCoord\n\t%s (%d)\n", cursorErr->message.c_str(), cursorErr->code);
-	//	return;
-	//}
-	//if (!::SetConsoleCursorPosition(this->stdOutHandle, *newCursorPos)){
-	//	auto err = ::GetLastError();
-	//	fprintf(stderr, "Failed to ::SetConsoleCursorPosition: %d\n", err);
-	//	return;
-	//}
-	//
-	//// padding write ' ' to the end
-	//auto [info, infoErr] = ConsoleUtil::GetConsoleScreenBufferInfo();
-	//if (infoErr) {
-	//	fprintf(stderr, "Failed to GetConsoleScreenBufferSize\n\t%s (%d)\n", infoErr->message.c_str(), infoErr->code);
-	//	return;
-	//}
-	//auto [ remaining, distErr ] = ConsoleUtil::CalcDistance({ SHORT(this->cursorOrigin.X + dx - 1), SHORT(this->cursorOrigin.Y + dy - 1) }, { info->srWindow.Right, info->srWindow.Bottom });
-	//if (distErr) {
-	//	fprintf(stderr, "Failed to ::CalcDistance\n\t%s (%d)\n", distErr->message.c_str(), distErr->code);
-	//	return;
-	//}
-	//std::string padding(*remaining, '.');
-	//DWORD written = 0;
-	//::WriteConsoleOutputCharacterA(this->stdOutHandle, padding.data(), padding.size(), { SHORT(this->cursorOrigin.X + dx), SHORT(this->cursorOrigin.Y + dy) }, &written);
+	::FillConsoleOutputCharacterW(this->stdOutHandle, L' ', *remaining, *endPos, &written);
 }
 
 
@@ -209,7 +128,11 @@ void View::ShowPrompt()
 	}
 	std::string prompt(buf, buf + pathLen);
 	//prompt += "\x1b[1m:-)\x1b[0m";
-	prompt += ":-)";
+	if (GetErrorLevelAsCode() == 0) {
+		prompt +=  (":-)" );
+	} else {
+		prompt += (":-(");
+	}
 	DWORD written = 0;
 	::WriteConsoleA(this->stdOutHandle, prompt.data(), prompt.size(), &written, nullptr);
 
@@ -220,6 +143,25 @@ void View::ShowPrompt()
 		return;
 	}
 	this->cursorOrigin = info->dwCursorPosition;
+}
+
+
+void View::SetTitle()
+{
+	Title::Set(L"Chronicle ++++ Main ++++");
+}
+
+
+void View::Renew()
+{
+	auto [info, err] = ConsoleUtil::GetConsoleScreenBufferInfo();
+	if (err) {
+		fwprintf(stderr, L"Failed to ::GetConsoleScreenBufferInfo\n\t%s %d", err->message.c_str(), err->code);
+		return;
+	}
+	// move cursor to new line
+	this->cursorOrigin = { 0, SHORT(info->dwCursorPosition.Y + 1) };
+	::SetConsoleCursorPosition(this->stdOutHandle, this->cursorOrigin);
 }
 
 

@@ -1,23 +1,43 @@
 #include "historian.h"
 #include "regex"
+#include "functional"
 
-Historian::Historian(const std::vector<std::wstring>& histories, size_t maxRowCount)
-	: data(histories)
-	, rowCount(maxRowCount)
+Historian::Historian()
+	: data({})
+	, rowCount(-1)
 	, index(-1)
 	, top(-1)
 	, bottom(-1)
 {
-	if (this->data.size()) {
-		this->top = 0;
-		this->bottom = std::min(this->rowCount - 1, this->data.size() - 1);
-		this->index = 0;
-	}
 }
 
 
 Historian::~Historian()
 {
+}
+
+void Historian::SetData(const std::vector<std::wstring>& histories)
+{
+	this->data = histories;
+	this->index = 0;
+	this->Updated();
+}
+
+void Historian::SetMaxRowCount(size_t maxRowCount)
+{
+	this->rowCount = maxRowCount;
+	if (this->data.size()) {
+		this->top = 0;
+		this->bottom = std::min(this->rowCount - 1, this->data.size() - 1);
+	}
+	if (this->rowCount - 1 < this->index) {
+		this->index = this->rowCount - 1;
+	}
+}
+
+void Historian::SetOnChanged(std::function<void()> cb)
+{
+	this->callback = cb;
 }
 
 
@@ -32,14 +52,17 @@ std::optional<Item> Historian::At(int index)
 
 void Historian::Filter(const std::wstring& keyword)
 {
-	this->index = 0;
 	this->candidates.clear();
-	candidates.reserve(this->data.size());
+	this->candidates.reserve(this->data.size());
 	for (auto& each : this->data) {
 		if (each.find(keyword) != std::wstring::npos) {
 			this->candidates.push_back(each);
 		}
 	}
+	if (this->candidates.size() - 1 < this->index) {
+		this->index = this->candidates.size() - 1;
+	}
+	this->Updated();
 	//try {
 	//	std::regex pattern(keyword);
 	//	for (auto& each : this->data) {
@@ -64,7 +87,8 @@ void Historian::Next()
 		this->bottom++;
 		this->top++;
 	}
-	this->updated = true;
+	this->Updated();
+	//this->updated = true;
 }
 
 
@@ -77,7 +101,8 @@ void Historian::Prev()
 		this->top--;
 		this->bottom--;
 	}
-	this->updated = true;
+	this->Updated();
+	//this->updated = true;
 }
 
 std::optional<std::wstring> Historian::Current()
@@ -102,16 +127,16 @@ int Historian::Bottom()
 	return this->bottom;
 }
 
-bool Historian::NeedUpdate()
-{
-	return this->updated;
-}
-
-
-void Historian::ResetUpdateStatus()
-{
-	this->updated = false;
-}
+//bool Historian::NeedUpdate()
+//{
+//	return this->updated;
+//}
+//
+//
+//void Historian::ResetUpdateStatus()
+//{
+//	this->updated = false;
+//}
 
 const std::vector<std::wstring>& Historian::Data()
 {
@@ -120,6 +145,13 @@ const std::vector<std::wstring>& Historian::Data()
 	}
 	else {
 		return this->data;
+	}
+}
+
+void Historian::Updated()
+{
+	if (this->callback) {
+		this->callback();
 	}
 }
 

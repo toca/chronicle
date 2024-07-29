@@ -10,6 +10,7 @@
 #include "tokenize.h"
 #include "parser.h"
 #include "node.h"
+#include "errorlevel.h"
 #include "error.h"
 #include "result.h"
 #include "process.h"
@@ -55,7 +56,7 @@ namespace Command
 		//// * Error handling and show error message.
 		//// * 2>&1
 		//// * return exit code
-		//// * expand environment variables
+		//// * expand environment variables, -> ErrorLevel
 		auto [tokens, tokenErr] = Tokenize(input);
 		if (tokenErr) {
 			return { std::nullopt, tokenErr };
@@ -69,7 +70,10 @@ namespace Command
 		
 
 		auto [code, execErr] = ExecuteCommandSequence(node, true, 0);
-
+		if (execErr) {
+			return { std::nullopt, execErr };
+		}
+		SetErrorLevel(*code);
 		return { code, std::nullopt };
 	}
 
