@@ -16,7 +16,7 @@ public:
 	Historian();
 	~Historian();
 	void SetData(const std::vector<std::wstring>& histories);
-	void SetMaxRowCount(size_t maxRowCount);
+	void SetMaxRow(size_t maxRowCount);
 	void SetOnChanged(std::function<void()> callback);
 	std::optional<Item> At(int index);
 	void Filter(const std::wstring& keyword);

@@ -13,7 +13,7 @@ public:
 
 	OptionalError InputKey(const KEY_EVENT_RECORD& e);
 	std::wstring Get();
-	std::wstring GetCommand();
+	//std::wstring GetCommand();
 	void Set(const std::wstring& s);
 	SHORT GetCursor();
 	void ClearInput();

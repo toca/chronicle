@@ -7,13 +7,19 @@ namespace ConsoleUtil
 	Result<CONSOLE_SCREEN_BUFFER_INFOEX> GetConsoleScreenBufferInfo()
 	{
 		auto stdoutHandle = ::GetStdHandle(STD_OUTPUT_HANDLE);
-		if (stdoutHandle == INVALID_HANDLE_VALUE) {
+		return GetConsoleScreenBufferInfo(stdoutHandle);
+	}
+
+
+	Result<CONSOLE_SCREEN_BUFFER_INFOEX> GetConsoleScreenBufferInfo(HANDLE handle)
+	{
+		if (handle == INVALID_HANDLE_VALUE) {
 			auto err = ::GetLastError();
 			return { std::nullopt, Error(err, L"Failed to ::GetStdHandle") };
 		}
 		CONSOLE_SCREEN_BUFFER_INFOEX info{};
 		info.cbSize = sizeof(CONSOLE_SCREEN_BUFFER_INFOEX);
-		if (!::GetConsoleScreenBufferInfoEx(stdoutHandle, &info)) {
+		if (!::GetConsoleScreenBufferInfoEx(handle, &info)) {
 			auto err = ::GetLastError();
 			return { std::nullopt, Error(err, L"Failed to ::GetConsoleScreenBufferInfoEx") };
 		}
@@ -31,6 +37,16 @@ namespace ConsoleUtil
 	}
 
 
+	Result<COORD> GetWindowSize(HANDLE handle)
+	{
+		auto [info, err] = GetConsoleScreenBufferInfo(handle);
+		if (err) {
+			return { std::nullopt, err };
+		}
+		return { COORD { SHORT(info->srWindow.Right - info->srWindow.Left + 1), SHORT(info->srWindow.Bottom - info->srWindow.Top + 1) }, std::nullopt };
+	}
+
+
 	Result<COORD> GetConsoleScreenBufferSize()
 	{
 		auto [info, err] = GetConsoleScreenBufferInfo();
@@ -40,9 +56,7 @@ namespace ConsoleUtil
 		return { COORD { info->dwSize.X, info->dwSize.Y }, std::nullopt };
 	}
 
-	/*
-	* Caluculate distans from 2 coordinate in console screen.
-	*/
+
 	Result<size_t> CalcDistance(const COORD& from, const COORD& to)
 	{
 		auto [info, err] = GetConsoleScreenBufferInfo();
@@ -56,9 +70,6 @@ namespace ConsoleUtil
 	}
 
 
-	/*
-	* Caluculate coordinate
-	*/
 	Result<COORD> CalcCoord(const COORD& origin, int scalar)
 	{
 		auto [info, err] = GetConsoleScreenBufferInfo();

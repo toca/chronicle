@@ -5,7 +5,6 @@
 
 // prototype
 class InputBuffer;
-//class PromptGate;
 
 class View
 {

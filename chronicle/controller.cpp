@@ -1,6 +1,7 @@
 #include "controller.h"
 #include "view.h"
 #include "inputbuffer.h"
+#include "inputbufferwindow.h"
 #include "command.h"
 #include "history.h"
 #include "mode.h"
@@ -110,10 +111,11 @@ void Controller::Down()
 
 void Controller::Enter()
 {
-	const std::wstring command = inputBuffer->GetCommand();
+	const std::wstring command = inputBuffer->Get();
 	this->view->Renew();
  	//wprintf(L"%s\n", command.c_str());
 	if (!command.empty()) {
+		this->history->Add(command);
 		auto [code, err] = Command::Execute(command);
 		if (err) {
 			fwprintf(stderr, L"%s: %d\n", err->message.c_str(), err->code);

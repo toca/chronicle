@@ -23,7 +23,7 @@ void Historian::SetData(const std::vector<std::wstring>& histories)
 	this->Updated();
 }
 
-void Historian::SetMaxRowCount(size_t maxRowCount)
+void Historian::SetMaxRow(size_t maxRowCount)
 {
 	this->rowCount = maxRowCount;
 	if (this->data.size()) {

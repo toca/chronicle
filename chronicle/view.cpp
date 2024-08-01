@@ -171,6 +171,7 @@ void View::Renew()
 	::SetConsoleCursorPosition(this->stdOutHandle, this->cursorOrigin);
 }
 
+
 void View::Enable(bool state)
 {
 	this->enabled = state;

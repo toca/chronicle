@@ -151,6 +151,7 @@
     <ClCompile Include="historian.cpp" />
     <ClCompile Include="history.cpp" />
     <ClCompile Include="inputbuffer.cpp" />
+    <ClCompile Include="inputbufferwindow.cpp" />
     <ClCompile Include="internalcommand.cpp" />
     <ClCompile Include="keyhooker.cpp" />
     <ClCompile Include="mode.cpp" />
@@ -176,6 +177,7 @@
     <ClInclude Include="historian.h" />
     <ClInclude Include="history.h" />
     <ClInclude Include="inputbuffer.h" />
+    <ClInclude Include="inputbufferwindow.h" />
     <ClInclude Include="internalcommand.h" />
     <ClInclude Include="keyhooker.h" />
     <ClInclude Include="mode.h" />

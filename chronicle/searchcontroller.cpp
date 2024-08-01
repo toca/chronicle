@@ -23,6 +23,7 @@ SearchController::SearchController(
 Result<SearchController*> SearchController::Create(std::shared_ptr<InputBuffer> inputBuffer, std::shared_ptr<History> history)
 {
 	auto historian = std::make_shared<Historian>();
+	historian->SetData(history->GetAll());
 	auto [res, err] = SearchView::Create(inputBuffer, historian);
 	if (err) {
 		return { std::nullopt, err };
@@ -82,7 +83,8 @@ void SearchController::Input(const std::vector<INPUT_RECORD>& inputs)
 				
 				break;
 			case WINDOW_BUFFER_SIZE_EVENT:
-				if (this->windowSize.X == 0 && this->windowSize.Y == 0) {
+				this->OnWindowSizeEvent();
+				/*if (this->windowSize.X == 0 && this->windowSize.Y == 0) {
 					this->windowSize = each.Event.WindowBufferSizeEvent.dwSize;
 					break;
 				}
@@ -90,7 +92,7 @@ void SearchController::Input(const std::vector<INPUT_RECORD>& inputs)
 					&& each.Event.WindowBufferSizeEvent.dwSize.Y == this->windowSize.Y)
 				{
 					break;
-				}
+				}*/
 				break;
 			default:
 				break;
@@ -102,6 +104,7 @@ void SearchController::Input(const std::vector<INPUT_RECORD>& inputs)
 void SearchController::OnModeChanged(Mode mode)
 {
 	if (mode == Mode::Search) {
+		this->historian->SetData(this->history->GetAll());
 		this->view->SetTitle();
 		this->view->Enable(true);
 		this->inputting = this->inputBuffer->Get();
@@ -110,5 +113,20 @@ void SearchController::OnModeChanged(Mode mode)
 	else {
 		this->view->Enable(false);
 	}
+}
+
+
+void SearchController::OnWindowSizeEvent()
+{
+	this->view->OnWindowSizeEvent();
+	/*if (this->windowSize.X == 0 && this->windowSize.Y == 0) {
+		this->windowSize = each.Event.WindowBufferSizeEvent.dwSize;
+		break;
+	}
+	if (record.Event.WindowBufferSizeEvent.dwSize.X == this->windowSize.X
+		&& each.Event.WindowBufferSizeEvent.dwSize.Y == this->windowSize.Y)
+	{
+		break;
+	}*/
 }
 

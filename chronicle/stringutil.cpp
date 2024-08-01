@@ -38,12 +38,33 @@ namespace StringUtil
 		return wstrTo;
 	}
 
-	size_t GetDisplayWidth(const std::wstring& str)
+	size_t GetDisplayWidth(const std::wstring& rawString)
 	{
-		if (str.empty()) return 0;
+		// only work for text format
+		if (rawString.empty()) return 0;
 
-		std::vector<WORD> result(str.size(), 0);
-		BOOL succeed = ::GetStringTypeW(CT_CTYPE3, str.data(), str.size(), result.data());
+		std::wstring displayString = L"";
+		bool inSequence = false;
+		for (size_t i = 0; i < rawString.size(); i++) {
+			if (inSequence) {
+				auto res = rawString[i] == L'm';
+				auto s = rawString[i];
+				if (rawString[i] == L'm') {
+					inSequence = false;
+				}
+				continue;
+			}
+			if (rawString[i] == wchar_t(L'\x1b')) {
+				i++;
+				if (rawString[i] == L'[') {
+					inSequence = true;
+					continue;
+				}
+			}
+			displayString += rawString[i];
+		}
+		std::vector<WORD> result(displayString.size(), 0);
+		BOOL succeed = ::GetStringTypeW(CT_CTYPE3, displayString.data(), displayString.size(), result.data());
 		if (!succeed) {
 			return -1;
 		}
@@ -52,5 +73,15 @@ namespace StringUtil
 			width += each & C3_HALFWIDTH ? 1 : 2;
 		}
 		return width;
+	}
+
+	std::wstring TruncateString(const std::wstring& source, size_t size)
+	{
+		if (GetDisplayWidth(source) <= size) {
+			return source;
+		}
+		std::wstring result(source.begin(), source.begin() + size - 2);
+		result += L"..";
+		return result;
 	}
 }

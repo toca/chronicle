@@ -8,7 +8,6 @@
 #include "mode.h"
 
 class SearchView;
-//class Prompt;
 class InputBuffer;
 class Historian;
 class History;
@@ -20,6 +19,7 @@ public:
 	~SearchController();
 	void Input(const std::vector<INPUT_RECORD>& inputs);
 	void OnModeChanged(Mode mode);
+	void OnWindowSizeEvent();
 private:
 	SearchController(std::shared_ptr<SearchView> view, std::shared_ptr<InputBuffer> inputBuffer, std::shared_ptr<Historian> historian, std::shared_ptr<History> history);
 
