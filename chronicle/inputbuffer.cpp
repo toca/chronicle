@@ -103,17 +103,23 @@ void InputBuffer::ClearInput()
 }
 
 
-void InputBuffer::SetOnChange(std::function<void(InputBuffer*)> cb)
+bool InputBuffer::ConsumeUpdatedFlag()
 {
-	this->callbacks.push_back(cb);
+	bool result = this->updated;
+	this->updated = false;
+	return result;
+}
+
+
+bool InputBuffer::PeekUpdatedFlag()
+{
+	return this->updated;
 }
 
 
 void InputBuffer::OnChanged()
 {
-	for (auto& each : this->callbacks) {
-		each(this);
-	}
+	this->updated = true;
 }
 
 

@@ -2,19 +2,14 @@
 #define NOMINMAX
 #include <Windows.h>
 #include "inputbuffer.h"
+#include "stringutil.h"
 
 InputBufferWindow::InputBufferWindow(std::shared_ptr<InputBuffer> inputBuffer)
 	: inputBuffer(inputBuffer)
-	, callback(nullptr)
-	, maxCol(0)
+	, width(0)
 	, left(0)
 	, right(0)
 {
-	this->inputBuffer->SetOnChange([this](auto ib)
-		{
-			this->OnChanged(ib);
-		}
-	);
 }
 
 
@@ -23,68 +18,67 @@ InputBufferWindow::~InputBufferWindow()
 }
 
 
-void InputBufferWindow::SetMaxCol(size_t col)
+void InputBufferWindow::SetWidth(size_t width)
 {
-	// FIXME
-	this->maxCol = col;
-	this->left = 0;
-	this->right = col;
+	this->width = width - 1; // Leave one character space at the left edge of the screen
+	this->right = width - 2; // Size to index + space
 }
 
 
-OptionalError InputBufferWindow::InputKey(const KEY_EVENT_RECORD& e)
+bool InputBufferWindow::ConsumeUpdatedFlag()
 {
-	return this->inputBuffer->InputKey(e);
+	return this->inputBuffer->ConsumeUpdatedFlag();
 }
 
 
 std::wstring InputBufferWindow::Get()
 {
-	// TODO use display count
-	auto input = this->inputBuffer->Get();
-	return std::wstring(input.begin() + left, input.begin() + (std::min)(right, input.size()));
-	//return this->inputBuffer->Get();
+	auto cursor = this->inputBuffer->GetCursor();
+	// move to right
+	if (this->right < cursor) {
+		this->right = cursor;
+		this->left = this->right - this->width;
+	}
+	// move to left
+	if (cursor < this->left) {
+		this->left = cursor;
+		this->right = this->left + this->width;
+	}
+
+	std::wstring input = this->inputBuffer->Get();
+	auto [widths, err] = StringUtil::FetchDisplayWidth(input);
+	if (err) {
+		// FIXME
+		return L"error@inputbufferwindow";
+	}
+
+	// left side
+	size_t startPos = 0;
+	this->droppedWidth = 0;
+	int remainWidth = this->left;
+	for (int i = 0; 0 < remainWidth && i < widths->size(); i++) {
+		startPos++;
+		remainWidth -= widths->at(i);
+		this->droppedWidth += widths->at(i);
+	}
+
+	// right side
+	size_t endPos = startPos;
+	remainWidth = this->right - this->left;
+	for (int i = startPos; 0 < remainWidth && i < widths->size(); i++) {
+		endPos++;
+		remainWidth -= widths->at(i);
+	}
+	// over window left
+	if (remainWidth < 0) {
+		endPos--;
+	}
+	return std::wstring(input.begin() + startPos, input.begin() + endPos);
 }
 
-
-void InputBufferWindow::Set(const std::wstring& s)
-{
-	this->inputBuffer->Set(s);
-}
 
 
 SHORT InputBufferWindow::GetCursor()
 {
-	return this->inputBuffer->GetCursor() - this->left;
+	return this->inputBuffer->GetCursor() - this->droppedWidth;
 }
-
-
-void InputBufferWindow::ClearInput()
-{
-	this->inputBuffer->ClearInput();
-}
-
-
-void InputBufferWindow::SetOnChange(std::function<void(InputBuffer*)> callback)
-{
-	this->callback = callback;
-}
-
-
-void InputBufferWindow::OnChanged(InputBuffer* ib)
-{
-	auto cursor = this->inputBuffer->GetCursor();
-	if (this->right < cursor) {
-		this->right = cursor;
-		this->left = this->right - this->maxCol;
-	}
-	if (cursor < this->left) {
-		this->left = cursor;
-		this->right = this->left + this->maxCol;
-	}
-
-	if (this->callback) {
-		this->callback(ib);
-	}
-}
-

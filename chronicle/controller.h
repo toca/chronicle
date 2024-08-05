@@ -16,6 +16,7 @@ public:
 	static Result<Controller*> Create(std::shared_ptr<InputBuffer> inputBuffer, std::shared_ptr<History> history);
 	~Controller();
 	OptionalError Input(const std::vector<INPUT_RECORD>& inputs);
+	OptionalError Render();
 	void OnModeChanged(Mode mode);
 private:
 	Controller(std::shared_ptr<View> view, std::shared_ptr<InputBuffer> inputBuffer, std::shared_ptr<History> history);

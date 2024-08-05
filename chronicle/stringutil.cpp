@@ -40,6 +40,8 @@ namespace StringUtil
 
 	size_t GetDisplayWidth(const std::wstring& rawString)
 	{
+		// TODO use FetchDisplayWidth
+
 		// only work for text format
 		if (rawString.empty()) return 0;
 
@@ -75,12 +77,48 @@ namespace StringUtil
 		return width;
 	}
 
+	Result<std::vector<uint8_t>> FetchDisplayWidth(const std::wstring& str)
+	{
+		if (str.empty()) return { std::vector<uint8_t>{}, std::nullopt };
+
+		std::wstring displayString = L"";
+		bool inSequence = false;
+		for (size_t i = 0; i < str.size(); i++) {
+			if (inSequence) {
+				auto res = str[i] == L'm';
+				auto s = str[i];
+				if (str[i] == L'm') {
+					inSequence = false;
+				}
+				continue;
+			}
+			if (str[i] == wchar_t(L'\x1b')) {
+				i++;
+				if (str[i] == L'[') {
+					inSequence = true;
+					continue;
+				}
+			}
+			displayString += str[i];
+		}
+		std::vector<WORD> types(displayString.size(), 0);
+		BOOL succeed = ::GetStringTypeW(CT_CTYPE3, displayString.data(), displayString.size(), types.data());
+		if (!succeed) {
+			return { std::nullopt, Error(::GetLastError(), L"Failed to ::GetStringType@stringutil") };
+		}
+		std::vector<uint8_t> result(types.size(), 0);
+		for (int i = 0; i < types.size(); i++) {
+			result[i] = types[i] & C3_HALFWIDTH ? 1 : 2;
+		}
+		return { result, std::nullopt };
+	}
+
 	std::wstring TruncateString(const std::wstring& source, size_t size)
 	{
 		if (GetDisplayWidth(source) <= size) {
 			return source;
 		}
-		std::wstring result(source.begin(), source.begin() + size - 2);
+		std::wstring result(source.begin(), source.begin() + size - 3);
 		result += L"..";
 		return result;
 	}

@@ -1,7 +1,5 @@
 #include "view.h"
-
 #include <Windows.h>
-
 #include <vector>
 #include <string>
 #include <sstream>
@@ -11,7 +9,6 @@
 #include "stringutil.h"
 #include "result.h"
 #include "inputbuffer.h"
-#include "promptgate.h"
 #include "errorlevel.h"
 #include "title.h"
 
@@ -47,14 +44,15 @@ Result<View*> View::Create(std::shared_ptr<InputBuffer> inputBuffer)
 	// cursol position
 	self->cursorOrigin = infoEx.dwCursorPosition;
 
-	// subscription
-	inputBuffer->SetOnChange([self](InputBuffer*)
-		{
-			self->ShowInputBuffer();
-		}
-	);
-
 	return { self, std::nullopt };
+}
+
+OptionalError View::Render()
+{
+	// TODO move to here
+	this->ShowInputBuffer();
+	// TODO error
+	return std::nullopt;
 }
 
 
@@ -67,6 +65,9 @@ View::View(std::shared_ptr<InputBuffer> ib)
 void View::ShowInputBuffer()
 {
 	if (!this->enabled) {
+		return;
+	}
+	if (!this->inputBuffer->ConsumeUpdatedFlag()) {
 		return;
 	}
 

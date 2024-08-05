@@ -13,16 +13,15 @@ public:
 
 	OptionalError InputKey(const KEY_EVENT_RECORD& e);
 	std::wstring Get();
-	//std::wstring GetCommand();
 	void Set(const std::wstring& s);
 	SHORT GetCursor();
 	void ClearInput();
-	void SetOnChange(std::function<void(InputBuffer*)> callback);
+	bool ConsumeUpdatedFlag();
+	bool PeekUpdatedFlag();
 
 private:
 	std::vector<wchar_t> buffer{};
 	SHORT cursorIndex = 0;
-	std::vector<std::function<void(InputBuffer*)>> callbacks;
 	bool updated = false;
 
 	void OnChanged();

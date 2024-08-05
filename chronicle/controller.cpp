@@ -80,6 +80,11 @@ OptionalError Controller::Input(const std::vector<INPUT_RECORD>& inputs)
 	return OptionalError();
 }
 
+OptionalError Controller::Render()
+{
+	return this->view->Render();
+}
+
 void Controller::OnModeChanged(Mode mode)
 {
 	if (mode == Mode::Main) {
@@ -113,7 +118,7 @@ void Controller::Enter()
 {
 	const std::wstring command = inputBuffer->Get();
 	this->view->Renew();
- 	//wprintf(L"%s\n", command.c_str());
+
 	if (!command.empty()) {
 		this->history->Add(command);
 		auto [code, err] = Command::Execute(command);

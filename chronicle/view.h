@@ -12,6 +12,7 @@ public:
 	~View();
 
 	static Result<View*> Create(std::shared_ptr<InputBuffer> inputBuffer);
+	OptionalError Render();
 	void ShowPrompt();
 	void SetTitle();
 	void Renew();

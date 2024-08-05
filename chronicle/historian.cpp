@@ -18,26 +18,24 @@ Historian::~Historian()
 
 void Historian::SetData(const std::vector<std::wstring>& histories)
 {
-	this->data = histories;
+	this->data.resize(histories.size());
+	std::reverse_copy(histories.begin(), histories.end(), this->data.begin());
 	this->index = 0;
-	this->Updated();
+	this->OnChanged();
 }
 
 void Historian::SetMaxRow(size_t maxRowCount)
 {
 	this->rowCount = maxRowCount;
 	if (this->data.size()) {
+		this->OnChanged();
 		this->top = 0;
 		this->bottom = std::min(this->rowCount - 1, this->data.size() - 1);
 	}
 	if (this->rowCount - 1 < this->index) {
+		this->OnChanged();
 		this->index = this->rowCount - 1;
 	}
-}
-
-void Historian::SetOnChanged(std::function<void()> cb)
-{
-	this->callback = cb;
 }
 
 
@@ -62,7 +60,7 @@ void Historian::Filter(const std::wstring& keyword)
 	if (this->candidates.size() - 1 < this->index) {
 		this->index = this->candidates.size() - 1;
 	}
-	this->Updated();
+	this->OnChanged();
 	//try {
 	//	std::regex pattern(keyword);
 	//	for (auto& each : this->data) {
@@ -87,7 +85,7 @@ void Historian::Next()
 		this->bottom++;
 		this->top++;
 	}
-	this->Updated();
+	this->OnChanged();
 }
 
 
@@ -100,7 +98,7 @@ void Historian::Prev()
 		this->top--;
 		this->bottom--;
 	}
-	this->Updated();
+	this->OnChanged();
 }
 
 std::optional<std::wstring> Historian::Current()
@@ -126,6 +124,14 @@ int Historian::Bottom()
 }
 
 
+bool Historian::ConsumeUpdatedFlag()
+{
+	bool result = this->updated;
+	this->updated = false;
+	return result;
+}
+
+
 const std::vector<std::wstring>& Historian::Data()
 {
 	if (this->candidates.size()) {
@@ -136,11 +142,9 @@ const std::vector<std::wstring>& Historian::Data()
 	}
 }
 
-void Historian::Updated()
+void Historian::OnChanged()
 {
-	if (this->callback) {
-		this->callback();
-	}
+	this->updated = true;
 }
 
 

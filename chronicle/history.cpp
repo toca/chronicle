@@ -14,14 +14,16 @@ History::~History()
 
 std::optional<Error> History::Load(std::wistream& stream)
 {
-	// stream ----
-	// newest <- end - 0
-	// 2nd    <- end - 1
-	// 3rd    <- end - 2
+	// Data order of stream ----
+	// oldest -> begin()
+	// ......
+	// 3rd    -> end() - 2
+	// 2nd    -> end() - 1
+	// newest -> end() - 0
 	int count = 0;
 	std::wstring line;
 	while (std::getline(stream, line) && count < DataLength) {
-		this->data.push_front(line);
+		this->data.push_back(line);
 		count++;
 	}
 	this->Reset();
@@ -31,7 +33,7 @@ std::optional<Error> History::Load(std::wistream& stream)
 
 std::optional<Error> History::Dump(std::wostream& stream) 
 {
-	for (auto it = this->data.rbegin(); it != this->data.rend(); it++) {
+	for (auto it = this->data.begin(); it != this->data.end(); it++) {
 		stream << *it << std::endl;
 	}
 	return std::nullopt;

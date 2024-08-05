@@ -17,7 +17,8 @@ class SearchController
 public:
 	static Result<SearchController*> Create(std::shared_ptr<InputBuffer> inputBuffer, std::shared_ptr<History> history);
 	~SearchController();
-	void Input(const std::vector<INPUT_RECORD>& inputs);
+	OptionalError Input(const std::vector<INPUT_RECORD>& inputs);
+	OptionalError Render();
 	void OnModeChanged(Mode mode);
 	void OnWindowSizeEvent();
 private:

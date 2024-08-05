@@ -114,9 +114,11 @@ int main()
             {
             case Mode::Main:
                 controller->Input(*inputs);
+                controller->Render();
                 break;
             case Mode::Search:
                 searchController->Input(*inputs);
+                searchController->Render();
                 break;
             }
 

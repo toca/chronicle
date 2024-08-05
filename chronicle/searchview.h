@@ -17,7 +17,7 @@ class SearchView
 public:
 	static Result<SearchView*> Create(std::shared_ptr<InputBuffer> inputBuffer, std::shared_ptr<Historian> historian);
 	~SearchView();
-	std::optional<Error> Render();
+	OptionalError Render();
 	void SetTitle();
 	void Enable(bool state);
 	void OnWindowSizeEvent();

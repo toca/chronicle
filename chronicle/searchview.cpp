@@ -25,16 +25,6 @@ Result<SearchView*> SearchView::Create(std::shared_ptr<InputBuffer> inputBuffer,
 	// Setup Models
 	self->inputBuffer = std::make_shared<InputBufferWindow>(inputBuffer);
 	self->historian = historian;
-	self->inputBuffer->SetOnChange([self](auto sender)
-		{
-			self->Render();
-		}
-	);
-	self->historian->SetOnChanged([self]()
-		{
-			self->Render();
-		}
-	);
 
 
 	// stdout
@@ -51,7 +41,6 @@ Result<SearchView*> SearchView::Create(std::shared_ptr<InputBuffer> inputBuffer,
 	self->screenBuffers[0] = buffer1;
 	self->screenBuffers[1] = buffer2;
 
-
 	DWORD mode = 0;
 	::GetConsoleMode(buffer1, &mode);
 	mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
@@ -59,7 +48,7 @@ Result<SearchView*> SearchView::Create(std::shared_ptr<InputBuffer> inputBuffer,
 	::SetConsoleMode(buffer2, mode);
 
 	// Set Window Size
-	self->OnWindowSizeEvent();
+	//self->OnWindowSizeEvent();
 
 	return { self, std::nullopt };
 }
@@ -70,19 +59,11 @@ std::optional<Error> SearchView::Render()
 	if (!this->enabled) {
 		return std::nullopt;
 	}
-
-	// size
-	/*CONSOLE_SCREEN_BUFFER_INFOEX infoEx{};
-	infoEx.cbSize = sizeof(CONSOLE_SCREEN_BUFFER_INFOEX);
-	::GetConsoleScreenBufferInfoEx(this->stdOutHandle, &infoEx);
-
-	this->col = infoEx.srWindow.Right - infoEx.srWindow.Left + 1;
-	this->row = infoEx.srWindow.Bottom - infoEx.srWindow.Top + 1;
-	this->windowSize = { short(this->col), short(this->row) };*/
-
-	//this->historian->SetMaxRow(this->windowSize.Y - 1); // -1 = line of input buffer
-	//this->inputBuffer->SetMaxCol(this->windowSize.X - 2); // -2 = "> "
-
+	bool inputChanged = this->inputBuffer->ConsumeUpdatedFlag();
+	bool historyChanged = this->historian->ConsumeUpdatedFlag();
+	if (!inputChanged && !historyChanged) {
+		return std::nullopt;
+	}
 
 	// --------------------------------------
 	//   5th item
@@ -95,11 +76,12 @@ std::optional<Error> SearchView::Render()
 	
 	const size_t maxWidth = this->col - 2; // 2 = size of '  '
 	std::vector<std::wstring> lines{ uint64_t(this->windowSize.Y), L"" };
-	// --PROMPT--
+	// Prompt
 	static const std::wstring p = L"\x1b[96m>\x1b[0m ";
 	lines[lines.size() - 1] = p + this->inputBuffer->Get();
 	size_t last = lines.size() - 1 - 1;
 
+	// Data for display
 	size_t lineIndex = 0;
 	for (int i = this->historian->Top(); i <= this->historian->Bottom(); i++) {
 		auto r = this->historian->At(i);
@@ -116,11 +98,12 @@ std::optional<Error> SearchView::Render()
 	}
 
 
-	// rendering
+	// rendering ----
 	HANDLE back = this->screenBuffers[this->screenIndex ^ 1];
 	// clear buffer as ' '
 	DWORD written = 0;
 	::FillConsoleOutputCharacterA(back, L' ', this->windowSize.X * this->windowSize.Y, { 0, 0 }, &written);
+
 
 	::SetConsoleCursorPosition(back, { 0, 0 }); // WriteConsole starts to output from cursor pos
 	SHORT y = 0;
@@ -149,7 +132,9 @@ void SearchView::SetTitle()
 void SearchView::Enable(bool state)
 {
 	this->enabled = state;
-	if (!this->enabled) {
+	if (this->enabled) {
+		OnWindowSizeEvent();
+	} else {
 		::SetConsoleActiveScreenBuffer(this->stdOutHandle);
 	}
 }
@@ -178,7 +163,7 @@ void SearchView::OnWindowSizeEvent()
 		// -1 = line of input buffer
 		this->historian->SetMaxRow(this->windowSize.Y - 1); 
 		// -2 = "> "
-		this->inputBuffer->SetMaxCol(col - 2);
+		this->inputBuffer->SetWidth(col - 2);
 	}
 }
 
