@@ -16,6 +16,7 @@ public:
 	void ShowPrompt();
 	void SetTitle();
 	void Renew();
+	void Clear();
 	void Enable(bool state);
 	
 private:

@@ -175,6 +175,19 @@ void View::Renew()
 }
 
 
+void View::Clear()
+{
+	auto [info, err] = ConsoleUtil::GetConsoleScreenBufferInfo();
+	if (err) {
+		fwprintf(stderr, L"Failed to Clear$view\n\t%s: %d\n", err->message.c_str(), err->code);
+		return;
+	}
+	std::wstring newLine(info->srWindow.Bottom + 1, L'\n');
+	fwprintf(stdout, L"%s", newLine.c_str());
+	::SetConsoleCursorPosition(this->stdOutHandle, { 0, SHORT(info->dwCursorPosition.Y + 1) });
+}
+
+
 void View::Enable(bool state)
 {
 	this->enabled = state;

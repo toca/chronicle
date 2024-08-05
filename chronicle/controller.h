@@ -23,6 +23,7 @@ private:
 	void Up();
 	void Down();
 	void Enter();
+	void Clear();
 
 	std::shared_ptr<View> view;
 	std::shared_ptr<InputBuffer> inputBuffer;
