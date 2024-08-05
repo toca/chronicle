@@ -45,6 +45,9 @@
     <ClCompile Include="..\chronicle\parser.cpp">
       <Filter>targets</Filter>
     </ClCompile>
+    <ClCompile Include="..\chronicle\errorlevel.cpp">
+      <Filter>targets</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">

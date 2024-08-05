@@ -43,7 +43,7 @@ OptionalError Process::Start()
 		DWORD result = this->Create();
 		if (result != ERROR_SUCCESS) {
 			// TODO not the same as cmd.exe
-			ShowError(result, this->output);
+			ShowError(result, this->error);
 		}
 		return std::nullopt;
 	}

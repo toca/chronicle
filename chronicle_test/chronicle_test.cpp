@@ -32,14 +32,14 @@ namespace chronicletest
 		TEST_METHOD(Older)
 		{
 			History h;
-			std::string val = "dummy-value";
+			std::wstring val = L"dummy-value";
 			h.Add(val);
 			Assert::AreEqual(*h.Older(), val);
 		}
 		TEST_METHOD(OlderOlderNoValue)
 		{
 			History h;
-			std::string val = "dummy-value";
+			std::wstring val = L"dummy-value";
 			h.Add(val);
 			Assert::AreEqual(val, *h.Older());
 			Assert::IsFalse(h.Older().has_value());
@@ -47,8 +47,8 @@ namespace chronicletest
 		TEST_METHOD(OlderOlderValue)
 		{
 			History h;
-			std::string val1 = "dummy-value1";
-			std::string val2 = "dummy-value2";
+			std::wstring val1 = L"dummy-value1";
+			std::wstring val2 = L"dummy-value2";
 			h.Add(val1);
 			h.Add(val2);
 			Assert::AreEqual(val2, *h.Older());
@@ -58,13 +58,13 @@ namespace chronicletest
 		TEST_METHOD(Newer)
 		{
 			History h;
-			h.Add("dummy-val");
+			h.Add(L"dummy-val");
 			Assert::IsFalse(h.Newer().has_value());
 		}
 		TEST_METHOD(OlderNewerNoValue)
 		{
 			History h;
-			std::string val = "dummy-val";
+			std::wstring val = L"dummy-val";
 			h.Add(val);
 			Assert::AreEqual(val, *h.Older());
 			Assert::IsFalse(h.Newer().has_value());
@@ -72,8 +72,8 @@ namespace chronicletest
 		TEST_METHOD(OlderNewerValue)
 		{
 			History h;
-			std::string val1 = "dummy-val1";
-			std::string val2 = "dummy-val2";
+			std::wstring val1 = L"dummy-val1";
+			std::wstring val2 = L"dummy-val2";
 			h.Add(val1);
 			h.Add(val2);
 			Assert::AreEqual(val2, *h.Older());
@@ -84,9 +84,9 @@ namespace chronicletest
 		TEST_METHOD(Uniqueness)
 		{
 			History h;
-			std::string val1 = "dummy-val1";
-			std::string val2 = "dummy-val2";
-			std::string val3 = "dummy-val1";
+			std::wstring val1 = L"dummy-val1";
+			std::wstring val2 = L"dummy-val2";
+			std::wstring val3 = L"dummy-val1";
 			h.Add(val1);
 			h.Add(val2);
 			h.Add(val3);
@@ -100,33 +100,33 @@ namespace chronicletest
 		TEST_METHOD(Load_items)
 		{
 			History h;
-			std::stringstream ss("dum-val1\ndum-val2\n");
+			std::wstringstream ss(L"dum-val1\ndum-val2\n");
 			h.Load(ss);
-			Assert::AreEqual(std::string("dum-val1"), *h.Older());
-			Assert::AreEqual(std::string("dum-val2"), *h.Older());
+			Assert::AreEqual(std::wstring(L"dum-val2"), *h.Older());
+			Assert::AreEqual(std::wstring(L"dum-val1"), *h.Older());
 		}
 
 		TEST_METHOD(Load_and_Add) 
 		{
 			History h;
-			std::stringstream ss("dum-val1\ndum-val2\n");
+			std::wstringstream ss(L"dum-val1\ndum-val2\n");
 			h.Load(ss);
-			h.Add("dum-val3");
-			//Assert::IsTrue(h.Older()->compare("dum-val3"));
-			Assert::AreEqual(std::string("dum-val3"), *h.Older());
-			Assert::AreEqual(std::string("dum-val1"), *h.Older());
-			Assert::AreEqual(std::string("dum-val2"), *h.Older());
+			h.Add(L"dum-val3");
+			//Assert::IsTrue(h.Older()->compare(L"dum-val3"));
+			Assert::AreEqual(std::wstring(L"dum-val3"), *h.Older());
+			Assert::AreEqual(std::wstring(L"dum-val2"), *h.Older());
+			Assert::AreEqual(std::wstring(L"dum-val1"), *h.Older());
 		}
 
 		TEST_METHOD(Dump_items)
 		{
 			History h;
-			h.Add("dum-val1");
-			h.Add("dum-val2");
-			h.Add("dum-val3");
-			std::stringstream ss;
+			h.Add(L"dum-val1");
+			h.Add(L"dum-val2");
+			h.Add(L"dum-val3");
+			std::wstringstream ss;
 			h.Dump(ss);
-			Assert::IsTrue(ss.str() == "dum-val3\ndum-val2\ndum-val1\n");
+			Assert::IsTrue(ss.str() == L"dum-val1\ndum-val2\ndum-val3\n");
 		}
 
 	};
@@ -135,71 +135,71 @@ namespace chronicletest
 	{
 		TEST_METHOD(SingleCommand)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("dir");
+			auto [tokens, tokenErr] = Command::Tokenize(L"dir");
 			Assert::IsFalse(tokenErr.has_value());
 			Assert::AreEqual(size_t(1), tokens->size());
-			Assert::AreEqual(std::string("dir"), tokens->at(0).value);
+			Assert::AreEqual(std::wstring(L"dir"), tokens->at(0).value);
 			Assert::IsTrue(tokens->at(0).kind == TokenKind::Text);
 		}
 		TEST_METHOD(ValidRedirect)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("echo foo 2> out.txt");
+			auto [tokens, tokenErr] = Command::Tokenize(L"echo foo 2> out.txt");
 			Assert::IsFalse(tokenErr.has_value());
 			Assert::AreEqual(size_t(3), tokens->size());
-			Assert::AreEqual(std::string("echo foo "), tokens->at(0).value);
+			Assert::AreEqual(std::wstring(L"echo foo "), tokens->at(0).value);
 			Assert::IsTrue(tokens->at(0).kind == TokenKind::Text);
-			Assert::AreEqual(std::string("2>"), tokens->at(1).value);
+			Assert::AreEqual(std::wstring(L"2>"), tokens->at(1).value);
 			Assert::IsTrue(tokens->at(1).kind == TokenKind::Operator);
-			Assert::AreEqual(std::string("out.txt"), tokens->at(2).value);
+			Assert::AreEqual(std::wstring(L"out.txt"), tokens->at(2).value);
 			Assert::IsTrue(tokens->at(2).kind == TokenKind::Text);
 		}
 		TEST_METHOD(InvalidRedirect)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("echo foo2> out.txt");
+			auto [tokens, tokenErr] = Command::Tokenize(L"echo foo2> out.txt");
 			Assert::IsFalse(tokenErr.has_value());
 			Assert::AreEqual(size_t(3), tokens->size());
-			Assert::AreEqual(std::string("echo foo2"), tokens->at(0).value);
+			Assert::AreEqual(std::wstring(L"echo foo2"), tokens->at(0).value);
 			Assert::IsTrue(tokens->at(0).kind == TokenKind::Text);
-			Assert::AreEqual(std::string(">"), tokens->at(1).value);
+			Assert::AreEqual(std::wstring(L">"), tokens->at(1).value);
 			Assert::IsTrue(tokens->at(1).kind == TokenKind::Operator);
-			Assert::AreEqual(std::string("out.txt"), tokens->at(2).value);
+			Assert::AreEqual(std::wstring(L"out.txt"), tokens->at(2).value);
 			Assert::IsTrue(tokens->at(2).kind == TokenKind::Text);
 		}
 		TEST_METHOD(QuotedArg)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("findstr \"^\"");
+			auto [tokens, tokenErr] = Command::Tokenize(L"findstr \"^\"");
 			Assert::IsFalse(tokenErr.has_value());
 			Assert::AreEqual(size_t(2), tokens->size());
-			Assert::AreEqual(std::string("findstr \"\""), tokens->at(0).value);
+			Assert::AreEqual(std::wstring(L"findstr \"\""), tokens->at(0).value);
 			Assert::IsTrue(tokens->at(0).kind == TokenKind::Text);
 		}
 		TEST_METHOD(Input)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("findstr \"key\" < test.txt");
+			auto [tokens, tokenErr] = Command::Tokenize(L"findstr \"key\" < test.txt");
 			Assert::IsFalse(tokenErr.has_value());
 			Assert::AreEqual(size_t(3), tokens->size());
-			Assert::AreEqual(std::string("findstr \"key\" "), tokens->at(0).value);
+			Assert::AreEqual(std::wstring(L"findstr \"key\" "), tokens->at(0).value);
 			Assert::IsTrue(tokens->at(0).kind == TokenKind::Text);
-			Assert::AreEqual(std::string("<"), tokens->at(1).value);
+			Assert::AreEqual(std::wstring(L"<"), tokens->at(1).value);
 			Assert::IsTrue(tokens->at(1).kind == TokenKind::Operator);
-			Assert::AreEqual(std::string("test.txt"), tokens->at(2).value);
+			Assert::AreEqual(std::wstring(L"test.txt"), tokens->at(2).value);
 			Assert::IsTrue(tokens->at(2).kind == TokenKind::Text);
 		}
 		TEST_METHOD(InputWithEscape)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("findstr \"^\" < input.txt");
+			auto [tokens, tokenErr] = Command::Tokenize(L"findstr \"^\" < input.txt");
 			Assert::IsFalse(tokenErr.has_value());
 			Assert::AreEqual(size_t(3), tokens->size());
-			Assert::AreEqual(std::string("findstr \"\" "), tokens->at(0).value);
+			Assert::AreEqual(std::wstring(L"findstr \"\" "), tokens->at(0).value);
 			Assert::IsTrue(tokens->at(0).kind == TokenKind::Text);
-			Assert::AreEqual(std::string("<"), tokens->at(1).value);
+			Assert::AreEqual(std::wstring(L"<"), tokens->at(1).value);
 			Assert::IsTrue(tokens->at(1).kind == TokenKind::Operator);
-			Assert::AreEqual(std::string("input.txt"), tokens->at(2).value);
+			Assert::AreEqual(std::wstring(L"input.txt"), tokens->at(2).value);
 			Assert::IsTrue(tokens->at(2).kind == TokenKind::Text);
 		}
 		TEST_METHOD(Empty)
 		{
-			auto [tokens, err] = Command::Tokenize("");
+			auto [tokens, err] = Command::Tokenize(L"");
 			Assert::IsFalse(err.has_value());
 			Assert::AreEqual(size_t(0), tokens->size());
 		}
@@ -208,158 +208,158 @@ namespace chronicletest
 
 	TEST_CLASS(parsertest)
 	{
-		const std::string SYNTAX_ERROR_MESSAGE = "The syntax of the command is incorrect.";
+		const std::wstring SYNTAX_ERROR_MESSAGE = L"The syntax of the command is incorrect.";
 		TEST_METHOD(OnlySingleCommand)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("dir");
+			auto [tokens, tokenErr] = Command::Tokenize(L"dir");
 			Assert::IsFalse(tokenErr.has_value());
 			Parser parser(*tokens);
 			auto [ node, err ] = parser.Parse();
 			Assert::IsFalse(err.has_value());
 			Assert::IsTrue(node->type == NodeType::Command);
-			Assert::AreEqual(node->command, std::string("dir"));
+			Assert::AreEqual(node->command, std::wstring(L"dir"));
 		}
 		TEST_METHOD(CommandWithArgs)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("dir /?");
+			auto [tokens, tokenErr] = Command::Tokenize(L"dir /?");
 			Assert::IsFalse(tokenErr.has_value());
 			Parser parser(*tokens);
 			auto [node, err] = parser.Parse();
 			Assert::IsFalse(err.has_value());
 			Assert::IsTrue(node->type == NodeType::Command);
-			Assert::AreEqual(node->command, std::string("dir"));
-			Assert::AreEqual(node->arguments, std::string("/?"));
+			Assert::AreEqual(node->command, std::wstring(L"dir"));
+			Assert::AreEqual(node->arguments, std::wstring(L"/?"));
 		}
 		TEST_METHOD(OneCommandOneArgWithSpace)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("echo    foo");
+			auto [tokens, tokenErr] = Command::Tokenize(L"echo    foo");
 			Assert::IsFalse(tokenErr.has_value());
 			Parser parser(*tokens);
 			auto [node, err] = parser.Parse();
-			Assert::AreEqual(std::string("echo"), node->command);
-			Assert::AreEqual(std::string("   foo"), node->arguments);
+			Assert::AreEqual(std::wstring(L"echo"), node->command);
+			Assert::AreEqual(std::wstring(L"   foo"), node->arguments);
 		}
 		TEST_METHOD(CommandWithQuote)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("\"C:\\Program Files\\Example\\command.exe\"");
+			auto [tokens, tokenErr] = Command::Tokenize(L"\"C:\\Program Files\\Example\\command.exe\"");
 			Assert::IsFalse(tokenErr.has_value());
 			Parser parser(*tokens);
 			auto [node, err] = parser.Parse();
 			Assert::IsFalse(err.has_value());
 			Assert::IsTrue(node->type == NodeType::Command);
-			Assert::AreEqual(node->command, std::string("\"C:\\Program Files\\Example\\command.exe\""));
+			Assert::AreEqual(node->command, std::wstring(L"\"C:\\Program Files\\Example\\command.exe\""));
 		}
 		TEST_METHOD(InputRedirection)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("findstr \"a\" < input.txt");
+			auto [tokens, tokenErr] = Command::Tokenize(L"findstr \"a\" < input.txt");
 			Assert::IsFalse(tokenErr.has_value());
 			Parser parser(*tokens);
 			auto [node, err] = parser.Parse();
 			Assert::IsFalse(err.has_value());
 			Assert::IsTrue(node->type == NodeType::Command);
-			Assert::AreEqual(std::string("findstr"), node->command);
-			Assert::AreEqual(std::string("\"a\" "),node->arguments);
+			Assert::AreEqual(std::wstring(L"findstr"), node->command);
+			Assert::AreEqual(std::wstring(L"\"a\" "),node->arguments);
 			Assert::AreEqual(size_t(1), node->redirections.size());
-			Assert::AreEqual(std::string("input.txt"), node->redirections.at(0).file);
-			Assert::AreEqual(std::string("<"), node->redirections.at(0).op);
+			Assert::AreEqual(std::wstring(L"input.txt"), node->redirections.at(0).file);
+			Assert::AreEqual(std::wstring(L"<"), node->redirections.at(0).op);
 		}
 		TEST_METHOD(InputRedirections)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("findstr \"a\" < input1.txt < input2.txt < input3.txt");
+			auto [tokens, tokenErr] = Command::Tokenize(L"findstr \"a\" < input1.txt < input2.txt < input3.txt");
 			Assert::IsFalse(tokenErr.has_value());
 			Parser parser(*tokens);
 			auto [node, err] = parser.Parse();
 			Assert::IsFalse(err.has_value());
 			Assert::IsTrue(node->type == NodeType::Command);
-			Assert::AreEqual(std::string("findstr"), node->command);
-			Assert::AreEqual(std::string("\"a\" "), node->arguments);
+			Assert::AreEqual(std::wstring(L"findstr"), node->command);
+			Assert::AreEqual(std::wstring(L"\"a\" "), node->arguments);
 			Assert::AreEqual(size_t(3), node->redirections.size());
-			Assert::AreEqual(std::string("input1.txt"), node->redirections.at(0).file);
-			Assert::AreEqual(std::string("<"), node->redirections.at(0).op);
-			Assert::AreEqual(std::string("input2.txt"), node->redirections.at(1).file);
-			Assert::AreEqual(std::string("<"), node->redirections.at(1).op);
-			Assert::AreEqual(std::string("input3.txt"), node->redirections.at(2).file);
-			Assert::AreEqual(std::string("<"), node->redirections.at(2).op);
+			Assert::AreEqual(std::wstring(L"input1.txt"), node->redirections.at(0).file);
+			Assert::AreEqual(std::wstring(L"<"), node->redirections.at(0).op);
+			Assert::AreEqual(std::wstring(L"input2.txt"), node->redirections.at(1).file);
+			Assert::AreEqual(std::wstring(L"<"), node->redirections.at(1).op);
+			Assert::AreEqual(std::wstring(L"input3.txt"), node->redirections.at(2).file);
+			Assert::AreEqual(std::wstring(L"<"), node->redirections.at(2).op);
 		}
 		TEST_METHOD(OutputRedirection)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("echo hello> output.txt");
+			auto [tokens, tokenErr] = Command::Tokenize(L"echo hello> output.txt");
 			Assert::IsFalse(tokenErr.has_value());
 			Parser parser(*tokens);
 			auto [node, err] = parser.Parse();
 			Assert::IsFalse(err.has_value());
 			Assert::IsTrue(node->type == NodeType::Command);
-			Assert::AreEqual(std::string("echo"), node->command);
-			Assert::AreEqual(std::string("hello"), node->arguments);
+			Assert::AreEqual(std::wstring(L"echo"), node->command);
+			Assert::AreEqual(std::wstring(L"hello"), node->arguments);
 			Assert::AreEqual(size_t(1), node->redirections.size());
-			Assert::AreEqual(std::string("output.txt"), node->redirections.at(0).file);
-			Assert::AreEqual(std::string(">"), node->redirections.at(0).op);
+			Assert::AreEqual(std::wstring(L"output.txt"), node->redirections.at(0).file);
+			Assert::AreEqual(std::wstring(L">"), node->redirections.at(0).op);
 		}
 		TEST_METHOD(OutputRedirections)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("echo hello> output1.txt > output2.txt > output3.txt");
+			auto [tokens, tokenErr] = Command::Tokenize(L"echo hello> output1.txt > output2.txt > output3.txt");
 			Assert::IsFalse(tokenErr.has_value());
 			Parser parser(*tokens);
 			auto [node, err] = parser.Parse();
 			Assert::IsFalse(err.has_value());
 			Assert::IsTrue(node->type == NodeType::Command);
-			Assert::AreEqual(std::string("echo"), node->command);
-			Assert::AreEqual(std::string("hello"), node->arguments);
+			Assert::AreEqual(std::wstring(L"echo"), node->command);
+			Assert::AreEqual(std::wstring(L"hello"), node->arguments);
 			Assert::AreEqual(size_t(3), node->redirections.size());
-			Assert::AreEqual(std::string("output1.txt"), node->redirections.at(0).file);
-			Assert::AreEqual(std::string(">"), node->redirections.at(0).op);
-			Assert::AreEqual(std::string("output2.txt"), node->redirections.at(1).file);
-			Assert::AreEqual(std::string(">"), node->redirections.at(1).op);
-			Assert::AreEqual(std::string("output3.txt"), node->redirections.at(2).file);
-			Assert::AreEqual(std::string(">"), node->redirections.at(2).op);
+			Assert::AreEqual(std::wstring(L"output1.txt"), node->redirections.at(0).file);
+			Assert::AreEqual(std::wstring(L">"), node->redirections.at(0).op);
+			Assert::AreEqual(std::wstring(L"output2.txt"), node->redirections.at(1).file);
+			Assert::AreEqual(std::wstring(L">"), node->redirections.at(1).op);
+			Assert::AreEqual(std::wstring(L"output3.txt"), node->redirections.at(2).file);
+			Assert::AreEqual(std::wstring(L">"), node->redirections.at(2).op);
 		}
 		TEST_METHOD(AppendtRedirection)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("echo hello>> output.txt");
+			auto [tokens, tokenErr] = Command::Tokenize(L"echo hello>> output.txt");
 			Assert::IsFalse(tokenErr.has_value());
 			Parser parser(*tokens);
 			auto [node, err] = parser.Parse();
 			Assert::IsFalse(err.has_value());
 			Assert::IsTrue(node->type == NodeType::Command);
-			Assert::AreEqual(std::string("echo"), node->command);
-			Assert::AreEqual(std::string("hello"), node->arguments);
+			Assert::AreEqual(std::wstring(L"echo"), node->command);
+			Assert::AreEqual(std::wstring(L"hello"), node->arguments);
 			Assert::AreEqual(size_t(1), node->redirections.size());
-			Assert::AreEqual(std::string("output.txt"), node->redirections.at(0).file);
-			Assert::AreEqual(std::string(">>"), node->redirections.at(0).op);
+			Assert::AreEqual(std::wstring(L"output.txt"), node->redirections.at(0).file);
+			Assert::AreEqual(std::wstring(L">>"), node->redirections.at(0).op);
 		}
 		TEST_METHOD(StdErrRedirection)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("echo hello 2> output.txt");
+			auto [tokens, tokenErr] = Command::Tokenize(L"echo hello 2> output.txt");
 			Assert::IsFalse(tokenErr.has_value());
 			Parser parser(*tokens);
 			auto [node, err] = parser.Parse();
 			Assert::IsFalse(err.has_value());
 			Assert::IsTrue(node->type == NodeType::Command);
-			Assert::AreEqual(std::string("echo"), node->command);
-			Assert::AreEqual(std::string("hello "), node->arguments);
+			Assert::AreEqual(std::wstring(L"echo"), node->command);
+			Assert::AreEqual(std::wstring(L"hello "), node->arguments);
 			Assert::AreEqual(size_t(1), node->redirections.size());
-			Assert::AreEqual(std::string("output.txt"), node->redirections.at(0).file);
-			Assert::AreEqual(std::string("2>"), node->redirections.at(0).op);
+			Assert::AreEqual(std::wstring(L"output.txt"), node->redirections.at(0).file);
+			Assert::AreEqual(std::wstring(L"2>"), node->redirections.at(0).op);
 		}
 		TEST_METHOD(StdOutRedirection)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("echo hello 1> output.txt");
+			auto [tokens, tokenErr] = Command::Tokenize(L"echo hello 1> output.txt");
 			Assert::IsFalse(tokenErr.has_value());
 			Parser parser(*tokens);
 			auto [node, err] = parser.Parse();
 			Assert::IsFalse(err.has_value());
 			Assert::IsTrue(node->type == NodeType::Command);
-			Assert::AreEqual(std::string("echo"), node->command);
-			Assert::AreEqual(std::string("hello "), node->arguments);
+			Assert::AreEqual(std::wstring(L"echo"), node->command);
+			Assert::AreEqual(std::wstring(L"hello "), node->arguments);
 			Assert::AreEqual(size_t(1), node->redirections.size());
-			Assert::AreEqual(std::string("output.txt"), node->redirections.at(0).file);
-			Assert::AreEqual(std::string("1>"), node->redirections.at(0).op);
+			Assert::AreEqual(std::wstring(L"output.txt"), node->redirections.at(0).file);
+			Assert::AreEqual(std::wstring(L"1>"), node->redirections.at(0).op);
 		}
 		
 
 		TEST_METHOD(ConbinedCommandSimple)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("dir | findstr \"a\"");
+			auto [tokens, tokenErr] = Command::Tokenize(L"dir | findstr \"a\"");
 			Assert::IsFalse(tokenErr.has_value());
 			Parser parser(*tokens);
 			auto [node, err] = parser.Parse();
@@ -368,12 +368,12 @@ namespace chronicletest
 			Assert::IsTrue(node->type == NodeType::Pipe);
 			Assert::IsTrue(node->left->type == NodeType::Command);
 			Assert::IsTrue(node->right->type == NodeType::Command);
-			Assert::AreEqual(node->left->command, std::string("dir"));
-			Assert::AreEqual(node->right->command, std::string("findstr"));
+			Assert::AreEqual(node->left->command, std::wstring(L"dir"));
+			Assert::AreEqual(node->right->command, std::wstring(L"findstr"));
 		}
 		TEST_METHOD(ConbinedCommandNest)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("dir | findstr \"a\" | more");
+			auto [tokens, tokenErr] = Command::Tokenize(L"dir | findstr \"a\" | more");
 			Assert::IsFalse(tokenErr.has_value());
 			Parser parser(*tokens);
 			auto [node, err] = parser.Parse();
@@ -381,18 +381,18 @@ namespace chronicletest
 
 			Assert::IsTrue(node->type == NodeType::Pipe);
 			Assert::IsTrue(node->left->type == NodeType::Command);
-			Assert::AreEqual(std::string("dir"), node->left->command);
+			Assert::AreEqual(std::wstring(L"dir"), node->left->command);
 			Assert::IsTrue(node->right->type == NodeType::Pipe);
 			Assert::IsTrue(node->right->left->type == NodeType::Command);
-			Assert::AreEqual(std::string("findstr"), node->right->left->command);
+			Assert::AreEqual(std::wstring(L"findstr"), node->right->left->command);
 			Assert::IsTrue(node->right->right->type == NodeType::Command);
-			Assert::AreEqual(std::string("more"), node->right->right->command);
+			Assert::AreEqual(std::wstring(L"more"), node->right->right->command);
 		}
 		
 		
 		TEST_METHOD(CommandSequenceAnd) 
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("dir && cd");
+			auto [tokens, tokenErr] = Command::Tokenize(L"dir && cd");
 			Assert::IsFalse(tokenErr.has_value());
 			Parser parser(*tokens);
 			auto [node, err] = parser.Parse();
@@ -400,13 +400,13 @@ namespace chronicletest
 
 			Assert::IsTrue(node->type == NodeType::And);
 			Assert::IsTrue(node->left->type == NodeType::Command);
-			Assert::AreEqual(std::string("dir"), node->left->command);
+			Assert::AreEqual(std::wstring(L"dir"), node->left->command);
 			Assert::IsTrue(node->right->type == NodeType::Command);
-			Assert::AreEqual(std::string("cd"), node->right->command);
+			Assert::AreEqual(std::wstring(L"cd"), node->right->command);
 		}
 		TEST_METHOD(CommandSequenceOr) 
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("dir || cd");
+			auto [tokens, tokenErr] = Command::Tokenize(L"dir || cd");
 			Assert::IsFalse(tokenErr.has_value());
 			Parser parser(*tokens);
 			auto [node, err] = parser.Parse();
@@ -414,13 +414,13 @@ namespace chronicletest
 
 			Assert::IsTrue(node->type == NodeType::Or);
 			Assert::IsTrue(node->left->type == NodeType::Command);
-			Assert::AreEqual(std::string("dir"), node->left->command);
+			Assert::AreEqual(std::wstring(L"dir"), node->left->command);
 			Assert::IsTrue(node->right->type == NodeType::Command);
-			Assert::AreEqual(std::string("cd"), node->right->command);
+			Assert::AreEqual(std::wstring(L"cd"), node->right->command);
 		}
 		TEST_METHOD(CommandSequenceSeparate) 
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("dir & cd");
+			auto [tokens, tokenErr] = Command::Tokenize(L"dir & cd");
 			Assert::IsFalse(tokenErr.has_value());
 			Parser parser(*tokens);
 
@@ -429,13 +429,13 @@ namespace chronicletest
 
 			Assert::IsTrue(node->type == NodeType::Separator);
 			Assert::IsTrue(node->left->type == NodeType::Command);
-			Assert::AreEqual(std::string("dir"), node->left->command);
+			Assert::AreEqual(std::wstring(L"dir"), node->left->command);
 			Assert::IsTrue(node->right->type == NodeType::Command);
-			Assert::AreEqual(std::string("cd"), node->right->command);
+			Assert::AreEqual(std::wstring(L"cd"), node->right->command);
 		}
 		TEST_METHOD(CommandSequenceErrorAnd)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("dir &");
+			auto [tokens, tokenErr] = Command::Tokenize(L"dir &");
 			Assert::IsFalse(tokenErr.has_value());
 			Parser parser(*tokens);
 
@@ -445,7 +445,7 @@ namespace chronicletest
 		}
 		TEST_METHOD(CommandSequenceErrorOr)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("dir ||");
+			auto [tokens, tokenErr] = Command::Tokenize(L"dir ||");
 			Assert::IsFalse(tokenErr.has_value());
 			Parser parser(*tokens);
 
@@ -455,7 +455,7 @@ namespace chronicletest
 		}
 		TEST_METHOD(CommandSequenceErrorSeparater)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("dir &");
+			auto [tokens, tokenErr] = Command::Tokenize(L"dir &");
 			Assert::IsFalse(tokenErr.has_value());
 			Parser parser(*tokens);
 
@@ -465,7 +465,7 @@ namespace chronicletest
 		}
 		TEST_METHOD(CommandSequenceComplex)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("dir & cd && echo foo || path");
+			auto [tokens, tokenErr] = Command::Tokenize(L"dir & cd && echo foo || path");
 			Assert::IsFalse(tokenErr.has_value());
 
 			Parser parser(*tokens);
@@ -475,60 +475,60 @@ namespace chronicletest
 			Assert::IsTrue(node->type == NodeType::Separator);
 
 			Assert::IsTrue(node->left->type == NodeType::Command);
-			Assert::AreEqual(std::string("dir"), node->left->command);
+			Assert::AreEqual(std::wstring(L"dir"), node->left->command);
 			
 			auto c = std::move(node->right);
 			Assert::IsTrue(c->type == NodeType::And);
 
 			Assert::IsTrue(c->left->type == NodeType::Command);
-			Assert::AreEqual(std::string("cd"), c->left->command);
+			Assert::AreEqual(std::wstring(L"cd"), c->left->command);
 
 			c = std::move(c->right);
 			Assert::IsTrue(c->type == NodeType::Or);
 
 			Assert::IsTrue(c->left->type == NodeType::Command);
-			Assert::AreEqual(std::string("echo"), c->left->command);
+			Assert::AreEqual(std::wstring(L"echo"), c->left->command);
 
 			Assert::IsTrue(c->right->type == NodeType::Command);
-			Assert::AreEqual(std::string("path"), c->right->command);
+			Assert::AreEqual(std::wstring(L"path"), c->right->command);
 		}
 		
 		TEST_METHOD(InvalidSeparator)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("&");
+			auto [tokens, tokenErr] = Command::Tokenize(L"&");
 			Assert::IsFalse(tokenErr.has_value());
 
 			Parser parser(*tokens);
 			auto [node, err] = parser.Parse();
-			Assert::AreEqual(std::string("& was unexpected at this time."), err->message);
+			Assert::AreEqual(std::wstring(L"& was unexpected at this time."), err->message);
 		}
 		TEST_METHOD(InvalidAndOp)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("&&");
+			auto [tokens, tokenErr] = Command::Tokenize(L"&&");
 		
 			Parser parser(*tokens);
 			auto [node, err] = parser.Parse();
-			Assert::AreEqual(std::string("&& was unexpected at this time."), err->message);
+			Assert::AreEqual(std::wstring(L"&& was unexpected at this time."), err->message);
 		}
 		TEST_METHOD(InvalidOrOp)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("||");
+			auto [tokens, tokenErr] = Command::Tokenize(L"||");
 
 			Parser parser(*tokens);
 			auto [node, err] = parser.Parse();
-			Assert::AreEqual(std::string("|| was unexpected at this time."), err->message);
+			Assert::AreEqual(std::wstring(L"|| was unexpected at this time."), err->message);
 		}
 		TEST_METHOD(InvalidPipeOp)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("|");
+			auto [tokens, tokenErr] = Command::Tokenize(L"|");
 			
 			Parser parser(*tokens);
 			auto [node, err] = parser.Parse();
-			Assert::AreEqual(std::string("| was unexpected at this time."), err->message);
+			Assert::AreEqual(std::wstring(L"| was unexpected at this time."), err->message);
 		}
 		TEST_METHOD(InvalidRedirectOp)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize(">");
+			auto [tokens, tokenErr] = Command::Tokenize(L">");
 			
 			Parser parser(*tokens);
 			auto [node, err] = parser.Parse();
@@ -536,7 +536,7 @@ namespace chronicletest
 		}
 		TEST_METHOD(InvalidAppendOp)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize(">>");
+			auto [tokens, tokenErr] = Command::Tokenize(L">>");
 			
 			Parser parser(*tokens);
 			auto [node, err] = parser.Parse();
@@ -544,7 +544,7 @@ namespace chronicletest
 		}
 		TEST_METHOD(InvalidInputOp)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("<");
+			auto [tokens, tokenErr] = Command::Tokenize(L"<");
 			
 			Parser parser(*tokens);
 			auto [node, err] = parser.Parse();
@@ -552,175 +552,175 @@ namespace chronicletest
 		}
 		TEST_METHOD(InvalidDoubleOperator)
 		{
-			auto [tokens, tokenErr] = Command::Tokenize("echo foo & |");
+			auto [tokens, tokenErr] = Command::Tokenize(L"echo foo & |");
 			
 			Parser parser(*tokens);
 			auto [node, err] = parser.Parse();
-			Assert::AreEqual(std::string("| was unexpected at this time."), err->message);
+			Assert::AreEqual(std::wstring(L"| was unexpected at this time."), err->message);
 		}
 
 		//TEST_METHOD(OnlySingleCommand)
 		//{
-		//	auto [ nodes, err ] = Command::Parse("dir");
+		//	auto [ nodes, err ] = Command::Parse(L"dir");
 		//	Assert::IsFalse(err.has_value());
 		//	Assert::AreEqual(size_t(2), nodes->size());
-		//	Assert::AreEqual("dir", nodes->at(0).command.c_str());
+		//	Assert::AreEqual(L"dir", nodes->at(0).command.c_str());
 		//}
 		//TEST_METHOD(OneCommandOneArg)
 		//{
-		//	auto [nodes, err] = Command::Parse("cd .");
+		//	auto [nodes, err] = Command::Parse(L"cd .");
 		//	Assert::IsFalse(err.has_value());
 		//	Assert::AreEqual(size_t(2), nodes->size());
-		//	Assert::AreEqual("cd", nodes->at(0).command.c_str());
-		//	Assert::AreEqual(".", nodes->at(0).arguments.c_str());
+		//	Assert::AreEqual(L"cd", nodes->at(0).command.c_str());
+		//	Assert::AreEqual(L".", nodes->at(0).arguments.c_str());
 		//}
 		
 		//TEST_METHOD(CommandsWithPipe) 
 		//{
-		//	auto [nodes, err] = Command::Parse("echo foo | cat");
+		//	auto [nodes, err] = Command::Parse(L"echo foo | cat");
 		//	Assert::AreEqual(size_t(4), nodes->size());
-		//	Assert::AreEqual(std::string("echo"), nodes->at(0).command);
-		//	Assert::AreEqual(std::string("foo "), nodes->at(0).arguments);
+		//	Assert::AreEqual(std::wstring(L"echo"), nodes->at(0).command);
+		//	Assert::AreEqual(std::wstring(L"foo "), nodes->at(0).arguments);
 		//	Assert::IsTrue(NodeType::Pipe == nodes->at(1).type);
-		//	Assert::AreEqual(std::string("cat"), nodes->at(2).command);
+		//	Assert::AreEqual(std::wstring(L"cat"), nodes->at(2).command);
 		//}
 		//TEST_METHOD(CommandsWithOrOp)
 		//{
-		//	auto [nodes, err] = Command::Parse("echo foo || echo bar");
+		//	auto [nodes, err] = Command::Parse(L"echo foo || echo bar");
 		//	Assert::AreEqual(size_t(4), nodes->size());
-		//	Assert::AreEqual(std::string("echo"), nodes->at(0).command);
-		//	Assert::AreEqual(std::string("foo "), nodes->at(0).arguments);
+		//	Assert::AreEqual(std::wstring(L"echo"), nodes->at(0).command);
+		//	Assert::AreEqual(std::wstring(L"foo "), nodes->at(0).arguments);
 		//	Assert::IsTrue(NodeType::Or == nodes->at(1).type);
-		//	Assert::AreEqual(std::string("echo"), nodes->at(2).command);
-		//	Assert::AreEqual(std::string("bar"), nodes->at(2).arguments);
+		//	Assert::AreEqual(std::wstring(L"echo"), nodes->at(2).command);
+		//	Assert::AreEqual(std::wstring(L"bar"), nodes->at(2).arguments);
 		//}
 		//TEST_METHOD(CommandsWithSeparator)
 		//{
-		//	auto [nodes, err] = Command::Parse("echo foo & echo bar");
+		//	auto [nodes, err] = Command::Parse(L"echo foo & echo bar");
 		//	Assert::AreEqual(size_t(4), nodes->size());
-		//	Assert::AreEqual(std::string("echo"), nodes->at(0).command);
-		//	Assert::AreEqual(std::string("foo "), nodes->at(0).arguments);
+		//	Assert::AreEqual(std::wstring(L"echo"), nodes->at(0).command);
+		//	Assert::AreEqual(std::wstring(L"foo "), nodes->at(0).arguments);
 		//	Assert::IsTrue(NodeType::Separator == nodes->at(1).type);
-		//	Assert::AreEqual(std::string("echo"), nodes->at(2).command);
-		//	Assert::AreEqual(std::string("bar"), nodes->at(2).arguments);
+		//	Assert::AreEqual(std::wstring(L"echo"), nodes->at(2).command);
+		//	Assert::AreEqual(std::wstring(L"bar"), nodes->at(2).arguments);
 		//}
 		//TEST_METHOD(CommandsWithAndOp)
 		//{
-		//	auto [nodes, err] = Command::Parse("echo foo && echo bar");
+		//	auto [nodes, err] = Command::Parse(L"echo foo && echo bar");
 		//	Assert::AreEqual(size_t(4), nodes->size());
-		//	Assert::AreEqual(std::string("echo"), nodes->at(0).command);
-		//	Assert::AreEqual(std::string("foo "), nodes->at(0).arguments);
+		//	Assert::AreEqual(std::wstring(L"echo"), nodes->at(0).command);
+		//	Assert::AreEqual(std::wstring(L"foo "), nodes->at(0).arguments);
 		//	Assert::IsTrue(NodeType::And == nodes->at(1).type);
-		//	Assert::AreEqual(std::string("echo"), nodes->at(2).command);
-		//	Assert::AreEqual(std::string("bar"), nodes->at(2).arguments);
+		//	Assert::AreEqual(std::wstring(L"echo"), nodes->at(2).command);
+		//	Assert::AreEqual(std::wstring(L"bar"), nodes->at(2).arguments);
 		//}
 		//TEST_METHOD(CommandsWithRedirect)
 		//{
-		//	auto [nodes, err] = Command::Parse("echo foo > filename");
+		//	auto [nodes, err] = Command::Parse(L"echo foo > filename");
 		//	Assert::AreEqual(size_t(4), nodes->size());
-		//	Assert::AreEqual(std::string("echo"), nodes->at(0).command);
-		//	Assert::AreEqual(std::string("foo "), nodes->at(0).arguments);
+		//	Assert::AreEqual(std::wstring(L"echo"), nodes->at(0).command);
+		//	Assert::AreEqual(std::wstring(L"foo "), nodes->at(0).arguments);
 		//	Assert::IsTrue(NodeType::Redirect == nodes->at(1).type);
 		//	Assert::IsTrue(NodeType::File == nodes->at(2).type);
-		//	Assert::AreEqual(std::string("filename"), nodes->at(2).file);
+		//	Assert::AreEqual(std::wstring(L"filename"), nodes->at(2).file);
 		//}
 		//TEST_METHOD(CommandsWithAppend)
 		//{
-		//	auto [nodes, err] = Command::Parse("echo foo >> filename");
+		//	auto [nodes, err] = Command::Parse(L"echo foo >> filename");
 		//	Assert::AreEqual(size_t(4), nodes->size());
-		//	Assert::AreEqual(std::string("echo"), nodes->at(0).command);
-		//	Assert::AreEqual(std::string("foo "), nodes->at(0).arguments);
+		//	Assert::AreEqual(std::wstring(L"echo"), nodes->at(0).command);
+		//	Assert::AreEqual(std::wstring(L"foo "), nodes->at(0).arguments);
 		//	Assert::IsTrue(NodeType::Append == nodes->at(1).type);
-		//	Assert::AreEqual(std::string("filename"), nodes->at(2).file);
+		//	Assert::AreEqual(std::wstring(L"filename"), nodes->at(2).file);
 		//}
 		//TEST_METHOD(CommandsWithInput)
 		//{
-		//	auto [nodes, err] = Command::Parse("more < filename");
+		//	auto [nodes, err] = Command::Parse(L"more < filename");
 		//	Assert::AreEqual(size_t(4), nodes->size());
-		//	Assert::AreEqual(std::string("more"), nodes->at(0).command);
-		//	Assert::AreEqual(std::string(""), nodes->at(0).arguments);
+		//	Assert::AreEqual(std::wstring(L"more"), nodes->at(0).command);
+		//	Assert::AreEqual(std::wstring(L""), nodes->at(0).arguments);
 		//	Assert::IsTrue(NodeType::Input == nodes->at(1).type);
-		//	Assert::AreEqual(std::string("filename"), nodes->at(2).file);
+		//	Assert::AreEqual(std::wstring(L"filename"), nodes->at(2).file);
 		//}
 		//TEST_METHOD(RedirectStdOut)
 		//{
-		//	auto [nodes, err] = Command::Parse("echo foo 1> filename");
+		//	auto [nodes, err] = Command::Parse(L"echo foo 1> filename");
 		//	Assert::AreEqual(size_t(4), nodes->size());
-		//	Assert::AreEqual(std::string("echo"), nodes->at(0).command);
-		//	Assert::AreEqual(std::string("foo "), nodes->at(0).arguments);
+		//	Assert::AreEqual(std::wstring(L"echo"), nodes->at(0).command);
+		//	Assert::AreEqual(std::wstring(L"foo "), nodes->at(0).arguments);
 		//	Assert::IsTrue(NodeType::Redirect == nodes->at(1).type);
-		//	Assert::AreEqual(std::string("filename"), nodes->at(2).file);
+		//	Assert::AreEqual(std::wstring(L"filename"), nodes->at(2).file);
 		//}
 		//TEST_METHOD(AppendStdOut)
 		//{
-		//	auto [nodes, err] = Command::Parse("echo foo 1>> filename");
+		//	auto [nodes, err] = Command::Parse(L"echo foo 1>> filename");
 		//	Assert::AreEqual(size_t(4), nodes->size());
-		//	Assert::AreEqual(std::string("echo"), nodes->at(0).command);
-		//	Assert::AreEqual(std::string("foo "), nodes->at(0).arguments);
+		//	Assert::AreEqual(std::wstring(L"echo"), nodes->at(0).command);
+		//	Assert::AreEqual(std::wstring(L"foo "), nodes->at(0).arguments);
 		//	Assert::IsTrue(NodeType::Append == nodes->at(1).type);
-		//	Assert::AreEqual(std::string("filename"), nodes->at(2).file);
+		//	Assert::AreEqual(std::wstring(L"filename"), nodes->at(2).file);
 		//}
 		//TEST_METHOD(RedirectStdErr)
 		//{
-		//	auto [nodes, err] = Command::Parse("echo foo 2> filename");
+		//	auto [nodes, err] = Command::Parse(L"echo foo 2> filename");
 		//	Assert::AreEqual(size_t(4), nodes->size());
-		//	Assert::AreEqual(std::string("echo"), nodes->at(0).command);
-		//	Assert::AreEqual(std::string("foo "), nodes->at(0).arguments);
+		//	Assert::AreEqual(std::wstring(L"echo"), nodes->at(0).command);
+		//	Assert::AreEqual(std::wstring(L"foo "), nodes->at(0).arguments);
 		//	Assert::IsTrue(NodeType::Redirect == nodes->at(1).type);
-		//	Assert::AreEqual(std::string("filename"), nodes->at(2).file);
+		//	Assert::AreEqual(std::wstring(L"filename"), nodes->at(2).file);
 		//}
 		//TEST_METHOD(AppendStdErr)
 		//{
-		//	auto [nodes, err] = Command::Parse("echo foo 2>> filename");
+		//	auto [nodes, err] = Command::Parse(L"echo foo 2>> filename");
 		//	Assert::AreEqual(size_t(4), nodes->size());
-		//	Assert::AreEqual(std::string("echo"), nodes->at(0).command);
-		//	Assert::AreEqual(std::string("foo "), nodes->at(0).arguments);
+		//	Assert::AreEqual(std::wstring(L"echo"), nodes->at(0).command);
+		//	Assert::AreEqual(std::wstring(L"foo "), nodes->at(0).arguments);
 		//	Assert::IsTrue(NodeType::Append == nodes->at(1).type);
-		//	Assert::AreEqual(std::string("filename"), nodes->at(2).file);
+		//	Assert::AreEqual(std::wstring(L"filename"), nodes->at(2).file);
 		//}
 		//TEST_METHOD(RequireFile)
 		//{
-		//	auto [nodes, err] = Command::Parse("echo foo >");
+		//	auto [nodes, err] = Command::Parse(L"echo foo >");
 		//	Assert::AreEqual(ERROR_INVALID_FUNCTION, long(err->code));
-		//	Assert::AreEqual(std::string("The syntax of the command is incorrect."), err->message);
+		//	Assert::AreEqual(std::wstring(L"The syntax of the command is incorrect."), err->message);
 		//}
 		//TEST_METHOD(RequireFileAppend)
 		//{
-		//	auto [nodes, err] = Command::Parse("echo foo >>");
+		//	auto [nodes, err] = Command::Parse(L"echo foo >>");
 		//	Assert::AreEqual(ERROR_INVALID_FUNCTION, long(err->code));
-		//	Assert::AreEqual(std::string("The syntax of the command is incorrect."), err->message);
+		//	Assert::AreEqual(std::wstring(L"The syntax of the command is incorrect."), err->message);
 		//}
 		//TEST_METHOD(RequireCommandPipe)
 		//{
-		//	auto [nodes, err] = Command::Parse("echo foo |");
+		//	auto [nodes, err] = Command::Parse(L"echo foo |");
 		//	Assert::AreEqual(ERROR_INVALID_FUNCTION, long(err->code));
-		//	Assert::AreEqual(std::string("The syntax of the command is incorrect."), err->message);
+		//	Assert::AreEqual(std::wstring(L"The syntax of the command is incorrect."), err->message);
 		//}
 		//TEST_METHOD(RequireCommandOr)
 		//{
-		//	auto [nodes, err] = Command::Parse("echo foo ||");
+		//	auto [nodes, err] = Command::Parse(L"echo foo ||");
 		//	Assert::AreEqual(ERROR_INVALID_FUNCTION, long(err->code));
-		//	Assert::AreEqual(std::string("The syntax of the command is incorrect."), err->message);
+		//	Assert::AreEqual(std::wstring(L"The syntax of the command is incorrect."), err->message);
 		//}
 		//TEST_METHOD(RequireCommand)
 		//{
-		//	// "echo foo &" is valid for cmd.exe.
-		//	auto [nodes, err] = Command::Parse("echo foo &");
+		//	// L"echo foo &" is valid for cmd.exe.
+		//	auto [nodes, err] = Command::Parse(L"echo foo &");
 		//	Assert::AreEqual(ERROR_INVALID_FUNCTION, long(err->code));
-		//	Assert::AreEqual(std::string("The syntax of the command is incorrect."), err->message);
+		//	Assert::AreEqual(std::wstring(L"The syntax of the command is incorrect."), err->message);
 		//}
 		//TEST_METHOD(RequireCommandShort)
 		//{
-		//	auto [nodes, err] = Command::Parse("echo foo &&");
+		//	auto [nodes, err] = Command::Parse(L"echo foo &&");
 		//	Assert::AreEqual(ERROR_INVALID_FUNCTION, long(err->code));
-		//	Assert::AreEqual(std::string("The syntax of the command is incorrect."), err->message);
+		//	Assert::AreEqual(std::wstring(L"The syntax of the command is incorrect."), err->message);
 		//}
 
 		//TEST_METHOD(Complex) 
 		//{
-		//	//echo Starting && (dir /b | findstr "txt" > output.txt && type output.txt) || echo No txt files found & echo Done >> log.txt
+		//	//echo Starting && (dir /b | findstr L"txt" > output.txt && type output.txt) || echo No txt files found & echo Done >> log.txt
 
-		//	auto res = Command::Parse("echo foo & type test.txt | ")
+		//	auto res = Command::Parse(L"echo foo & type test.txt | ")
 		//	Assert::IsTrue(true);
 		//}
 	};
@@ -735,9 +735,9 @@ namespace chronicletest
 	TEST_CLASS(commandtest)
 	{
 		// TODO write test 2>, 2>>, 1> 1>> 
-		HANDLE OpenFileForRead(const std::string& path)
+		HANDLE OpenFileForRead(const std::wstring& path)
 		{
-			return ::CreateFileA(
+			return ::CreateFileW(
 				path.c_str(),
 				GENERIC_READ,
 				FILE_SHARE_READ | FILE_SHARE_WRITE,
@@ -787,7 +787,7 @@ namespace chronicletest
 		
 		TEST_METHOD(OnlySingleCommand)
 		{
-			auto [res, err] = Command::Execute("echo foo");
+			auto [res, err] = Command::Execute(L"echo foo");
 			Assert::IsFalse(err.has_value());
 			std::string buf(1024, '\0');
 			DWORD read = 0;
@@ -797,10 +797,10 @@ namespace chronicletest
 		}
 		TEST_METHOD(Redirect)
 		{
-			auto [res, err] = Command::Execute("echo test redirect > output.txt");
+			auto [res, err] = Command::Execute(L"echo test redirect > output.txt");
 			Assert::IsFalse(err.has_value());
-			HANDLE h = ::CreateFileA(
-				"output.txt",
+			HANDLE h = ::CreateFile(
+				L"output.txt",
 				GENERIC_READ,
 				FILE_SHARE_READ | FILE_SHARE_WRITE,
 				nullptr,
@@ -818,10 +818,10 @@ namespace chronicletest
 		}
 		TEST_METHOD(Append)
 		{
-			auto [res1, err1] = Command::Execute("echo one> output.txt");
+			auto [res1, err1] = Command::Execute(L"echo one> output.txt");
 			Assert::IsFalse(err1.has_value());
-			auto [res2, err2] = Command::Execute("echo two>> output.txt");
-			HANDLE h = OpenFileForRead("output.txt");
+			auto [res2, err2] = Command::Execute(L"echo two>> output.txt");
+			HANDLE h = OpenFileForRead(L"output.txt");
 			Assert::IsFalse(err2.has_value());
 			std::string buf(1024, '\0');
 			DWORD read = 0;
@@ -834,7 +834,7 @@ namespace chronicletest
 		TEST_METHOD(Input)
 		{
 			system("echo input test> input.txt");
-			auto [res, err] = Command::Execute("findstr test < input.txt");
+			auto [res, err] = Command::Execute(L"findstr test < input.txt");
 			Assert::IsFalse(err.has_value());
 			std::string buf(1024, '\0');
 			DWORD read = 0;
@@ -845,7 +845,7 @@ namespace chronicletest
 		}
 		TEST_METHOD(AndOpExecuteBoth) 
 		{
-			auto [res, err] = Command::Execute("echo foo && echo bar");
+			auto [res, err] = Command::Execute(L"echo foo && echo bar");
 			Assert::IsFalse(err.has_value());
 			std::string buf(1024, '\0');
 			DWORD read = 0;
@@ -855,9 +855,9 @@ namespace chronicletest
 		TEST_METHOD(AndOpExecuteFirst)
 		{
 			system("echo exist> output.txt");
-			auto [res, err] = Command::Execute("call && del output.txt");
+			auto [res, err] = Command::Execute(L"call && del output.txt");
 			Assert::IsFalse(err.has_value());
-			HANDLE h = OpenFileForRead("output.txt");
+			HANDLE h = OpenFileForRead(L"output.txt");
 			std::string buf(1024, '\0');
 			DWORD read = 0;
 			Assert::IsTrue(::ReadFile(h, buf.data(), buf.size(), &read, nullptr));
@@ -866,7 +866,7 @@ namespace chronicletest
 		}
 		TEST_METHOD(OrOpExcuteBoth) 
 		{
-			auto [res, err] = Command::Execute("call || echo last");
+			auto [res, err] = Command::Execute(L"call || echo last");
 			Assert::IsFalse(err.has_value());
 			std::string buf(1024, '\0');
 			DWORD read = 0;
@@ -876,9 +876,9 @@ namespace chronicletest
 		TEST_METHOD(OrOpExcuteFirst)
 		{
 			system("echo exist> output.txt");
-			auto [res, err] = Command::Execute("call || del output.txt");
+			auto [res, err] = Command::Execute(L"call || del output.txt");
 			Assert::IsFalse(err.has_value());
-			HANDLE h = OpenFileForRead("output.txt");
+			HANDLE h = OpenFileForRead(L"output.txt");
 			std::string buf(1024, '\0');
 			DWORD read = 0;
 			Assert::IsTrue(::ReadFile(h, buf.data(), buf.size(), &read, nullptr));
@@ -887,7 +887,7 @@ namespace chronicletest
 		}
 		TEST_METHOD(SeparatorOpExcuteBothIfFaileFist)
 		{
-			auto [res, err] = Command::Execute("call & echo last");
+			auto [res, err] = Command::Execute(L"call & echo last");
 			Assert::IsFalse(err.has_value());
 			std::string buf(1024, '\0');
 			DWORD read = 0;
@@ -896,7 +896,7 @@ namespace chronicletest
 		}
 		TEST_METHOD(SeparatorOpExcuteBoth)
 		{
-			auto [res, err] = Command::Execute("echo first&echo last");
+			auto [res, err] = Command::Execute(L"echo first&echo last");
 			Assert::IsFalse(err.has_value());
 			std::string buf(1024, '\0');
 			DWORD read = 0;
@@ -907,10 +907,10 @@ namespace chronicletest
 		{
 			system("echo exist> output.txt");
 
-			auto [res, err] = Command::Execute("cd || echo foo> output.txt && del output.txt");
+			auto [res, err] = Command::Execute(L"cd || echo foo> output.txt && del output.txt");
 			Assert::IsFalse(err.has_value());
 			std::string buf(1024, '\0');
-			HANDLE h = OpenFileForRead("output.txt");
+			HANDLE h = OpenFileForRead(L"output.txt");
 			DWORD read = 0;
 			Assert::IsTrue(::ReadFile(h, buf.data(), buf.size(), &read, nullptr));
 			Assert::AreEqual(0, strcmp(buf.data(), "exist\r\n"));
@@ -921,10 +921,10 @@ namespace chronicletest
 		{
 			system("echo exist> output.txt");
 
-			auto [res, err] = Command::Execute("xcopy && echo foo> output.txt && del output.txt && echo foo> output.txt");
+			auto [res, err] = Command::Execute(L"xcopy && echo foo> output.txt && del output.txt && echo foo> output.txt");
 			Assert::IsFalse(err.has_value());
 			std::string buf(1024, '\0');
-			HANDLE h = OpenFileForRead("output.txt");
+			HANDLE h = OpenFileForRead(L"output.txt");
 			DWORD read = 0;
 			Assert::IsTrue(::ReadFile(h, buf.data(), buf.size(), &read, nullptr));
 			Assert::AreEqual(0, strcmp(buf.data(), "exist\r\n"));
@@ -935,7 +935,7 @@ namespace chronicletest
 
 		TEST_METHOD(CurrentDirectoryShow)
 		{
-			auto [res, err] = Command::Execute("cd");
+			auto [res, err] = Command::Execute(L"cd");
 			Assert::IsFalse(err.has_value());
 			std::string buf(1024, '\0');
 			DWORD read = 0;
@@ -944,7 +944,7 @@ namespace chronicletest
 			std::string currentDir(4096, '\0');
 			DWORD len = ::GetCurrentDirectoryA(currentDir.size(), currentDir.data());
 			Assert::AreEqual(0, strncmp(buf.data(), currentDir.data(), len));
-			//Assert::AreEqual(std::string(buf.data()), std::string(currentDir.data()));
+			//Assert::AreEqual(std::wstring(buf.data()), std::wstring(currentDir.data()));
 		}
 	};
 }
