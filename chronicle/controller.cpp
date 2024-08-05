@@ -80,10 +80,12 @@ OptionalError Controller::Input(const std::vector<INPUT_RECORD>& inputs)
 	return OptionalError();
 }
 
+
 OptionalError Controller::Render()
 {
 	return this->view->Render();
 }
+
 
 void Controller::OnModeChanged(Mode mode)
 {
@@ -96,6 +98,7 @@ void Controller::OnModeChanged(Mode mode)
 	}
 }
 
+
 void Controller::Up()
 {
 	auto s = history->Older();
@@ -105,6 +108,7 @@ void Controller::Up()
 	}
 }
 
+
 void Controller::Down()
 {
 	auto s = history->Newer();
@@ -113,6 +117,7 @@ void Controller::Down()
 		this->inputBuffer->Set(*s);
 	}
 }
+
 
 void Controller::Enter()
 {
@@ -131,4 +136,3 @@ void Controller::Enter()
 	}
 	this->view->ShowPrompt();
 }
-

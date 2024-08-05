@@ -162,6 +162,8 @@ void View::SetTitle()
 
 void View::Renew()
 {
+	DWORD written = 0;
+	::WriteConsoleA(this->stdOutHandle, "\n", 1, &written, nullptr);
 	auto [info, err] = ConsoleUtil::GetConsoleScreenBufferInfo();
 	if (err) {
 		fwprintf(stderr, L"Failed to ::GetConsoleScreenBufferInfo\n\t%s %d", err->message.c_str(), err->code);
@@ -169,7 +171,7 @@ void View::Renew()
 	}
 	// move cursor to new line
 	this->cursorOrigin = { 0, SHORT(info->dwCursorPosition.Y + 1) };
-	::SetConsoleCursorPosition(this->stdOutHandle, this->cursorOrigin);
+	//::SetConsoleCursorPosition(this->stdOutHandle, this->cursorOrigin);
 }
 
 

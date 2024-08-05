@@ -159,6 +159,17 @@ OptionalError Process::Start()
 	case Type::ECHO:
 		this->exitCode = InternalCommand::Echo(arguments, this->output);
 		break;
+	case Type::CLS:
+	{
+		auto [code, err] = InternalCommand::Cls(this->output);
+		if (!err) {
+			this->exitCode = *code;
+		}
+		else {
+			return err;
+		}
+		break;
+	}
 	case Type::EXTERNAL:
 		break;
 	default:
@@ -281,6 +292,9 @@ Type ClassifyCommand(const std::wstring& command)
 	}
 	else if (_wcsicmp(command.c_str(), L"echo") == 0) {
 		return Type::ECHO;
+	}
+	else if (_wcsicmp(command.c_str(), L"cls") == 0) {
+		return Type::CLS;
 	}
 	else if (InternalCommand::IsDriveLetter(command)) {
 		return Type::CHANGE_DRIVE;

@@ -5,12 +5,13 @@
 #include <iostream>
 #include <cwctype>
 
+#include "consoleutil.h"
+#include "error.h"
 #include "result.h"
 #include "stringutil.h"
 
 
 // TODO setlocal, endlocal
-// cls?
 namespace InternalCommand
 {
 	// define internal functions --------------------------
@@ -245,8 +246,10 @@ namespace InternalCommand
 			}
 			std::wstring name = param.substr(0, pos);
 			std::wstring prompt = param.substr(pos + 1);
-			// FIXME
-			wprintf(L"%s", prompt.c_str());
+			
+			DWORD written = 0;
+			::WriteConsoleW(out, prompt.c_str(), prompt.size(), &written, nullptr);
+
 			std::wstring input;
 			std::getline(std::wcin, input);
 			if (!::SetEnvironmentVariableW(name.c_str(), input.c_str())) {
@@ -289,6 +292,29 @@ namespace InternalCommand
 		}
 	}
 
+
+	Result<DWORD> Cls(HANDLE out)
+	{
+		auto [info, err] = ConsoleUtil::GetConsoleScreenBufferInfo();
+		if (err) {
+			return { std::nullopt, err };
+		}
+
+		HANDLE stdOutHandle = ::GetStdHandle(STD_OUTPUT_HANDLE);
+		DWORD cellCount = info->dwSize.X * info->dwSize.Y;
+		DWORD count = 0;
+		// Fill screen buffer as space.
+		if (!::FillConsoleOutputCharacter(stdOutHandle,  L' ', cellCount, { 0, 0 }, &count)) {
+			return { std::nullopt, Error(::GetLastError(), L"Failed to ::FillConsoleOutputCharacter@internalcommand") };
+		}
+
+		// Move cursor to Top, Left
+		if (!::SetConsoleCursorPosition(stdOutHandle, { 0, 0 })) {
+			return { std::nullopt, Error(::GetLastError(), L"Failed to ::SetConsoleCursorPosition@internalcommand") };
+		}
+
+		return  { 0, std::nullopt };
+	}
 
 	// internal functions ---------------------------------
 	bool IsDriveLetter(const std::wstring& str)

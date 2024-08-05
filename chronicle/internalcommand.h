@@ -11,6 +11,7 @@ namespace InternalCommand
 	Result<DWORD> Popd(const std::wstring& param, HANDLE out);
 	Result<DWORD> Set(const std::wstring& param, HANDLE out);
 	DWORD Echo(const std::wstring& param, HANDLE out);
+	Result <DWORD> Cls(HANDLE out);
 	bool IsDriveLetter(const std::wstring& str);
 
 };

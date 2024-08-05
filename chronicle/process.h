@@ -15,7 +15,8 @@ enum class Type
 	PUSHD,
 	POPD,
 	SET,
-	ECHO
+	ECHO,
+	CLS
 };
 
 class Process
