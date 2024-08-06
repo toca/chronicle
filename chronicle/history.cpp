@@ -2,13 +2,17 @@
 #include <fstream>
 #include <iostream>
 
-History::History()
+History::History(std::wifstream&& in, std::wofstream&& out)
+	: input(in)
+	, output(out)
 {
-	this->Reset();
+	this->Load(this->input);
 }
 
 History::~History()
 {
+	this->input.close();
+	this->output.close();
 }
 
 
@@ -31,20 +35,13 @@ std::optional<Error> History::Load(std::wistream& stream)
 }
 
 
-std::optional<Error> History::Dump(std::wostream& stream) 
-{
-	for (auto it = this->data.begin(); it != this->data.end(); it++) {
-		stream << *it << std::endl;
-	}
-	return std::nullopt;
-}
-
-
 void History::Add(const std::wstring& line)
 {
 	if (line.size()) {
 		this->data.remove(line);
 		this->data.push_back(line);
+		this->output << line << std::endl;
+		this->output.flush();
 	}
 	this->Reset();
 }

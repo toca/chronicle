@@ -1,15 +1,13 @@
 ﻿#include <Windows.h>
 #include <locale.h>
 
-#include <format>
+#include <string>
 #include <memory>
 #include <cstdio>
-#include <iostream>
-#include <thread>
+#include <filesystem>
 #include <fstream>
-#include <array>
 #include <stdexcept>
-#include <tuple>
+#include <unordered_map>
 
 #include "history.h"
 #include "controller.h"
@@ -30,30 +28,39 @@ Result<std::vector<INPUT_RECORD>> Read();
 Result<std::wifstream> OpenHistoryFile();
 Result<std::wofstream> GetHistoryFile();
 
-
-
+std::unordered_map<std::wstring, std::wstring> GetOpt(int argc, wchar_t** argv);
+void ShowHelp();
 
 // M A I N ////////////////
-int main()
+int wmain(int argc, wchar_t** argv)
 {
+    setlocale(LC_ALL, "");
+
     // TODO
     // move history to ctrl and view
     // "/C" option
     try {
-        // locale
-        setlocale(LC_ALL, "");
+        auto options = GetOpt(argc, argv);
+        if (options.find(L"help") != options.end()) {
+            ShowHelp();
+            return 0;
+        }
 
         //DWORD handleCountBefore = 0;
         //::GetProcessHandleCount(::GetCurrentProcess(), &handleCountBefore);
 
         
         // history
-        std::shared_ptr<History> history = std::make_shared<History>();
         auto [ihistoryFile, iresult] = OpenHistoryFile();
-        if (ihistoryFile) {
-            history->Load(*ihistoryFile);
-            ihistoryFile->close();
+        if (iresult) {
+            fwprintf(stderr, L"Filed to OpenHistoryFile@chronicle\n\t%s: %d\n", iresult->message.c_str(), iresult->code);
         }
+        auto [ohistoryFile, oresult] = GetHistoryFile();
+        if (iresult) {
+            fwprintf(stderr, L"Filed to GetHistoryFile@chronicle\n\t%s: %d\n", iresult->message.c_str(), iresult->code);
+        }
+
+        std::shared_ptr<History> history = std::make_shared<History>(std::move(*ihistoryFile), std::move(*ohistoryFile));
         // input buffer
         auto inputBuffer = std::make_shared<InputBuffer>();
 
@@ -126,19 +133,11 @@ int main()
             continue;
         }
 
-        // TODO save histories immediately
-        // save histories
-        auto [ohistoryFile, oresult] = GetHistoryFile();
-        if (ohistoryFile) {
-            history->Dump(*ohistoryFile);
-            ohistoryFile->close();
-        }
-
         printf("Bye.\n");
 
     }
     catch (const std::exception& ex) {
-        std::cout << ex.what() << std::endl;
+        std::cerr << ex.what() << std::endl;
     }
     catch (...) {
         return 1;
@@ -153,6 +152,13 @@ Result<std::wifstream> OpenHistoryFile()
     std::string buf(4096, '\0');
     ::ExpandEnvironmentStringsA("%USERPROFILE%\\.cmd_history", buf.data(), buf.size());
 
+    // create if not exists
+    if (!std::filesystem::exists(buf)) {
+        std::ofstream outfile(buf);
+        if (outfile.is_open()) {
+            outfile.close();
+        }
+    }
     // open file
     std::wifstream fileStream(buf);
     if (!fileStream.is_open()) {
@@ -168,11 +174,32 @@ Result<std::wofstream> GetHistoryFile()
     ::ExpandEnvironmentStringsA("%USERPROFILE%\\.cmd_history", buf.data(), buf.size());
 
     // open or create file
-    std::wofstream fileStream(buf);
+    std::wofstream fileStream(buf, std::ios::app);
     if (!fileStream.is_open()) {
         return { std::nullopt, Error(2, L"Failed to Open history file") };
     }
     return { std::move(fileStream), std::nullopt };
+}
+
+
+std::unordered_map<std::wstring, std::wstring> GetOpt(int argc, wchar_t** argv)
+{
+    std::unordered_map<std::wstring, std::wstring> result{};
+    for (int i = 1; i < argc; i++) {
+        if (_wcsicmp(argv[i], L"/?") == 0) {
+            result[L"help"] = L"";
+        }
+    }
+    if (1 < argc && result.empty()) {
+        result[L"help"] = L"";
+    }
+    return result;
+}
+
+
+void ShowHelp()
+{
+    printf("CHRONICLE\n");
 }
 
 
