@@ -1,6 +1,8 @@
 #include "inputbuffer.h"
 #include "stringutil.h"
 
+#include <format>
+
 InputBuffer::InputBuffer()
 {
 }
@@ -46,7 +48,13 @@ OptionalError InputBuffer::InputKey(const KEY_EVENT_RECORD& e)
 		// do nothing
 		break;
 	default:
-		if (e.uChar.AsciiChar <= 31) {
+		bool controlPressed = e.dwControlKeyState & LEFT_CTRL_PRESSED || e.dwControlKeyState & RIGHT_CTRL_PRESSED;
+		if (e.uChar.AsciiChar <= 31 && !controlPressed) {
+			return std::nullopt;
+		}
+		::OutputDebugStringW(std::format(L"VK:{}\n", e.wVirtualKeyCode).c_str());
+		if (controlPressed) {
+			this->Control(e.wVirtualKeyCode);
 			return std::nullopt;
 		}
 		// FIXME max length of input = 1024 
@@ -121,6 +129,36 @@ bool InputBuffer::PeekUpdatedFlag()
 void InputBuffer::OnChanged()
 {
 	this->updated = true;
+}
+
+
+void InputBuffer::Control(WORD vk)
+{
+	// Doesn't work if "Enable Ctrl key shortcut" on cmd.exe
+	if (vk == VkKeyScanA('f'))
+	{
+		this->Right();
+	}
+	else if (vk == VkKeyScanA('b'))
+	{
+		this->Left();
+	} 
+	else if (vk == VkKeyScanA('a'))
+	{
+		this->Home();
+	}
+	else if (vk == VkKeyScanA('e'))
+	{
+		this->End();
+	}
+	else if (vk == VkKeyScanA('h'))
+	{
+		this->Back();
+	}
+	else if (vk == VkKeyScanA('d'))
+	{
+		this->Del();
+	}
 }
 
 

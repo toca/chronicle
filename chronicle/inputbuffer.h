@@ -27,6 +27,7 @@ private:
 	bool updated = false;
 
 	void OnChanged();
+	void Control(WORD vk);
 
 	void Left();
 	void Right();

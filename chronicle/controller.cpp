@@ -133,18 +133,26 @@ OptionalError Controller::KeyEvent(const KEY_EVENT_RECORD& keyEvent)
 	}
 	case VK_RIGHT:
 		this->Commit();
+		break;
 	default:
 	{
-		if (keyEvent.wVirtualKeyCode == VkKeyScanA('r'))
-		{
-			if (keyEvent.dwControlKeyState & LEFT_CTRL_PRESSED || keyEvent.dwControlKeyState & RIGHT_CTRL_PRESSED) {
+		// Ctrl - ?
+		if (keyEvent.dwControlKeyState & LEFT_CTRL_PRESSED || keyEvent.dwControlKeyState & RIGHT_CTRL_PRESSED) {
+			if (keyEvent.wVirtualKeyCode == VkKeyScanA('r'))
+			{
 				SetMode(Mode::Search);
 			}
-		}
-		else if (keyEvent.wVirtualKeyCode == VkKeyScanA('l'))
-		{
-			if (keyEvent.dwControlKeyState & LEFT_CTRL_PRESSED || keyEvent.dwControlKeyState & RIGHT_CTRL_PRESSED) {
+			else if (keyEvent.wVirtualKeyCode == VkKeyScanA('l'))
+			{
 				this->Clear();
+			}
+			else if (keyEvent.wVirtualKeyCode == VkKeyScanA('p'))
+			{
+				this->Up();
+			}
+			else if (keyEvent.wVirtualKeyCode == VkKeyScanA('n'))
+			{
+				this->Down();
 			}
 		}
 		break;
@@ -202,7 +210,6 @@ void Controller::Clear()
 
 void Controller::Complement(bool reverse)
 {
-
 	if (!this->complementing) {
 		this->complementing = true;
 		wchar_t currentDir[MAX_PATH];
