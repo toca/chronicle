@@ -159,6 +159,15 @@ OptionalError Process::Start()
 	case Type::ECHO:
 		this->exitCode = InternalCommand::Echo(arguments, this->output);
 		break;
+	case Type::MORE:
+	{
+		auto [code, err] = InternalCommand::More(arguments, this->output);
+		if (err) {
+			return err;
+		}
+		this->exitCode = *code;
+		break;
+	}
 	case Type::CLS:
 	{
 		auto [code, err] = InternalCommand::Cls(this->output);
@@ -292,6 +301,9 @@ Type ClassifyCommand(const std::wstring& command)
 	}
 	else if (_wcsicmp(command.c_str(), L"echo") == 0) {
 		return Type::ECHO;
+	}
+	else if (_wcsicmp(command.c_str(), L"more") == 0) {
+		return Type::MORE;
 	}
 	else if (_wcsicmp(command.c_str(), L"cls") == 0) {
 		return Type::CLS;

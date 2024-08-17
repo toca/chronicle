@@ -16,6 +16,7 @@ enum class Type
 	POPD,
 	SET,
 	ECHO,
+	MORE,
 	CLS
 };
 

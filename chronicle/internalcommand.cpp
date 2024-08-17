@@ -300,6 +300,14 @@ namespace InternalCommand
 	}
 
 
+	Result<DWORD> More(const std::wstring& param, HANDLE out)
+	{
+		auto [code, err] = System(L"more " + param, out);
+		if (err) return { std::nullopt, err };
+		return { *code, std::nullopt };
+	}
+
+
 	Result<DWORD> Cls(HANDLE out)
 	{
 		auto [info, err] = ConsoleUtil::GetConsoleScreenBufferInfo();
