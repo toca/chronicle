@@ -69,22 +69,23 @@ std::wstring InputBuffer::Get()
 }
 
 
-//std::wstring InputBuffer::GetCommand()
-//{
-//	std::wstring s(this->buffer.begin(), this->buffer.end());
-//	auto pos = s.find(L'\r');
-//	if (pos == std::string::npos) {
-//		return s;
-//	}
-//	else {
-//		return s.substr(0, pos);
-//	}
-//}
+std::wstring InputBuffer::GetInputToCursor()
+{
+	return std::wstring(this->buffer.begin(), this->buffer.begin() + this->cursorIndex);
+}
 
 
 void InputBuffer::Set(const std::wstring& s)
 {
 	this->buffer = std::vector<wchar_t>(s.begin(), s.end());
+	this->cursorIndex = this->buffer.size();
+	this->OnChanged();
+}
+
+
+void InputBuffer::Append(const std::wstring& s)
+{
+	this->buffer.insert(this->buffer.end(), s.begin(), s.end());
 	this->cursorIndex = this->buffer.size();
 	this->OnChanged();
 }

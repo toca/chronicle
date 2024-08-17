@@ -1,6 +1,7 @@
 #pragma once
 #include <Windows.h>
-#include "Result.h"
+#include "result.h"
+#include "error.h"
 
 namespace ConsoleUtil
 {
@@ -27,5 +28,8 @@ namespace ConsoleUtil
 	
 	// Calculate coordinate
 	Result<COORD> CalcCoord(const COORD& origin, int scalar);
+
+	//
+	OptionalError WriteConsoleOutputEx(HANDLE console, const std::wstring& text, WORD attributes, COORD startCoord);
 };
 

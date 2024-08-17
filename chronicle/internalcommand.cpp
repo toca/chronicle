@@ -145,20 +145,27 @@ namespace InternalCommand
 			}
 
 			SaveEachDrivePath(currentDirectory[0]);
-			::SetCurrentDirectory((drive + path).c_str());
-			DWORD err = ::GetLastError();
 			System(L"cd " + drive + path, out);
-			return { err, std::nullopt };
+
+			DWORD err = 0;
+			if (!::SetCurrentDirectoryW((drive + path).c_str())) {
+				err = ::GetLastError();
+				return { err, std::nullopt };
+			}
+			return { ERROR_SUCCESS, std::nullopt };
 		}
 		else {
 			if (otherDrive && driveOpt) {
 				// move other drive
 				SaveEachDrivePath(currentDirectory[0]);
 				std::wstring dist = LoadEachDrivePath(drive.at(0));
-				::SetCurrentDirectory(dist.c_str());
-				DWORD err = ::GetLastError();
+
 				System(L"cd /D " + dist, out);
-				return { err, std::nullopt };
+				if (!::SetCurrentDirectoryW(dist.c_str())) {
+					DWORD err = ::GetLastError();
+					return { err, std::nullopt };
+				}
+				return { ERROR_SUCCESS, std::nullopt };
 			}
 
 			// only show currend saved drive

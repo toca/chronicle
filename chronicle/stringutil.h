@@ -12,5 +12,7 @@ namespace StringUtil
 	size_t GetDisplayWidth(const std::wstring& str);
 	Result<std::vector<uint8_t>> FetchDisplayWidth(const std::wstring& str);
 	std::wstring TruncateString(const std::wstring& source, size_t size);
+	std::vector<std::wstring> Split(const std::wstring& source, wchar_t delimiter);
+	std::wstring Join(const std::vector<std::wstring>& source, wchar_t delimiter);
 };
 

@@ -143,8 +143,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="candidate.cpp" />
     <ClCompile Include="chronicle.cpp" />
     <ClCompile Include="command.cpp" />
+    <ClCompile Include="completion.cpp" />
     <ClCompile Include="consoleutil.cpp" />
     <ClCompile Include="controller.cpp" />
     <ClCompile Include="errorlevel.cpp" />
@@ -167,7 +169,10 @@
     <ClCompile Include="view.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="candidate.h" />
     <ClInclude Include="command.h" />
+    <ClInclude Include="completion.h" />
+    <ClInclude Include="completionitem.h" />
     <ClInclude Include="consoleutil.h" />
     <ClInclude Include="controller.h" />
     <ClInclude Include="defer.h" />

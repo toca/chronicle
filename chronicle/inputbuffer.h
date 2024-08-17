@@ -13,7 +13,9 @@ public:
 
 	OptionalError InputKey(const KEY_EVENT_RECORD& e);
 	std::wstring Get();
+	std::wstring GetInputToCursor();
 	void Set(const std::wstring& s);
+	void Append(const std::wstring& s);
 	SHORT GetCursor();
 	void ClearInput();
 	bool ConsumeUpdatedFlag();

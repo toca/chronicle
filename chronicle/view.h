@@ -5,13 +5,14 @@
 
 // prototype
 class InputBuffer;
+class Candidate;
 
 class View
 {
 public:
 	~View();
 
-	static Result<View*> Create(std::shared_ptr<InputBuffer> inputBuffer);
+	static Result<View*> Create(std::shared_ptr<InputBuffer> inputBuffer, std::shared_ptr<Candidate> candidate);
 	OptionalError Render();
 	void ShowPrompt();
 	void SetTitle();
@@ -20,11 +21,13 @@ public:
 	void Enable(bool state);
 	
 private:
-	View(std::shared_ptr<InputBuffer> inputBuffer);
-	void ShowInputBuffer();
+	View(std::shared_ptr<InputBuffer> inputBuffer, std::shared_ptr<Candidate> candidate);
+	OptionalError ShowInputBuffer();
+	OptionalError ShowCandidate();
 
 	// models
 	std::shared_ptr<InputBuffer> inputBuffer;
+	std::shared_ptr<Candidate> candidate;
 
 	bool enabled = false;
 	HANDLE stdOutHandle{};

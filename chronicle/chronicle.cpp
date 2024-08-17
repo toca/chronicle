@@ -117,6 +117,7 @@ int wmain(int argc, wchar_t** argv)
                 fwprintf(stderr, L"%s : %d\n", readErr->message.c_str(), readErr->code);
                 return readErr->code;
             }
+            // TODO check error
             switch (GetMode())
             {
             case Mode::Main:

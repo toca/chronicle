@@ -2,6 +2,7 @@
 #include <Windows.h>
 #include <string>
 #include <vector>
+#include <sstream>
 
 namespace StringUtil
 {
@@ -49,8 +50,6 @@ namespace StringUtil
 		bool inSequence = false;
 		for (size_t i = 0; i < rawString.size(); i++) {
 			if (inSequence) {
-				auto res = rawString[i] == L'm';
-				auto s = rawString[i];
 				if (rawString[i] == L'm') {
 					inSequence = false;
 				}
@@ -58,6 +57,9 @@ namespace StringUtil
 			}
 			if (rawString[i] == wchar_t(L'\x1b')) {
 				i++;
+				if (rawString.size() <= i) {
+					break;
+				}
 				if (rawString[i] == L'[') {
 					inSequence = true;
 					continue;
@@ -65,10 +67,14 @@ namespace StringUtil
 			}
 			displayString += rawString[i];
 		}
+		if (displayString.empty()) {
+			return 0;
+		}
 		std::vector<WORD> result(displayString.size(), 0);
 		BOOL succeed = ::GetStringTypeW(CT_CTYPE3, displayString.data(), displayString.size(), result.data());
 		if (!succeed) {
-			return -1;
+			auto err = ::GetLastError();
+			return 0;
 		}
 		size_t width = 0;
 		for (auto& each : result) {
@@ -85,8 +91,6 @@ namespace StringUtil
 		bool inSequence = false;
 		for (size_t i = 0; i < str.size(); i++) {
 			if (inSequence) {
-				auto res = str[i] == L'm';
-				auto s = str[i];
 				if (str[i] == L'm') {
 					inSequence = false;
 				}
@@ -94,6 +98,9 @@ namespace StringUtil
 			}
 			if (str[i] == wchar_t(L'\x1b')) {
 				i++;
+				if (str.size() <= i) {
+					break;
+				}
 				if (str[i] == L'[') {
 					inSequence = true;
 					continue;
@@ -101,6 +108,10 @@ namespace StringUtil
 			}
 			displayString += str[i];
 		}
+		if (displayString.empty()) {
+			return { std::vector<uint8_t>{}, std::nullopt };
+		}
+
 		std::vector<WORD> types(displayString.size(), 0);
 		BOOL succeed = ::GetStringTypeW(CT_CTYPE3, displayString.data(), displayString.size(), types.data());
 		if (!succeed) {
@@ -120,6 +131,35 @@ namespace StringUtil
 		}
 		std::wstring result(source.begin(), source.begin() + size - 3);
 		result += L"..";
+		return result;
+	}
+
+	std::vector<std::wstring> Split(const std::wstring& source, wchar_t delimiter)
+	{
+		std::vector<std::wstring> result;
+		std::wstring token;
+		for (wchar_t ch : source) {
+			if (ch == delimiter) {
+				result.push_back(token);
+				token.clear();
+			}
+			else {
+				token += ch;
+			}
+		}
+		result.push_back(token);
+		return result;
+	}
+
+	std::wstring Join(const std::vector<std::wstring>& source, wchar_t delimiter)
+	{
+		std::wstring result;
+		for (size_t i = 0; i < source.size(); ++i) {
+			result += source[i];
+			if (i < source.size() - 1) {
+				result += delimiter;
+			}
+		}
 		return result;
 	}
 }

@@ -9,13 +9,14 @@
 #include "stringutil.h"
 #include "result.h"
 #include "inputbuffer.h"
+#include "candidate.h"
 #include "errorlevel.h"
 #include "title.h"
 
 
-Result<View*> View::Create(std::shared_ptr<InputBuffer> inputBuffer)
+Result<View*> View::Create(std::shared_ptr<InputBuffer> inputBuffer, std::shared_ptr<Candidate> candidate)
 {
-	View* self = new View(inputBuffer);
+	View* self = new View(inputBuffer, candidate);
 
 	// std handles
 	HANDLE oh = ::GetStdHandle(STD_OUTPUT_HANDLE);
@@ -47,77 +48,135 @@ Result<View*> View::Create(std::shared_ptr<InputBuffer> inputBuffer)
 	return { self, std::nullopt };
 }
 
+
 OptionalError View::Render()
 {
-	// TODO move to here
-	this->ShowInputBuffer();
-	// TODO error
+	auto showInputErr = this->ShowInputBuffer();
+	if (showInputErr) {
+		return showInputErr;
+	}
+	auto showCandidateErr = this->ShowCandidate();
+	if (showCandidateErr) {
+		return showCandidateErr;
+	}
 	return std::nullopt;
 }
 
 
-View::View(std::shared_ptr<InputBuffer> ib)
+View::View(std::shared_ptr<InputBuffer> ib, std::shared_ptr<Candidate> c)
 	: inputBuffer(ib)
+	, candidate(c)
 {
 }
 
 
-void View::ShowInputBuffer()
+OptionalError View::ShowInputBuffer()
 {
 	if (!this->enabled) {
-		return;
+		return std::nullopt;
 	}
 	if (!this->inputBuffer->ConsumeUpdatedFlag()) {
-		return;
+		return std::nullopt;
 	}
 
-	// windows size to get screen width
-	auto [windowSize, windowErr] = ConsoleUtil::GetWindowSize();
-	if (windowErr) {
-		fwprintf(stderr, L"Failed to GetWindowSize\n\t%s (%d)\n\tRender@view\n", windowErr->message.c_str(), windowErr->code);
-		return;
+	// Screen Buffer Info
+	auto [screenInfo, screenInfoErr] = ConsoleUtil::GetConsoleScreenBufferInfo();
+	if (screenInfoErr) {
+		return Error(*screenInfoErr, L"ShoeInputBuffer@view\n");
 	}
-	// output
-	auto width = windowSize->X;
-	std::wstring data = this->inputBuffer->Get();
-	DWORD written = 0;
-	if (!::WriteConsoleOutputCharacterW(this->stdOutHandle, data.data(), data.size(), { this->cursorOrigin.X, this->cursorOrigin.Y }, &written)) {
-		auto err = ::GetLastError();
-		fwprintf(stderr, L"Failed to ::WriteConsoleOutputCharacterA: %d\n", err);
-		return;
-	}
-	// set cursor
+
+	// New Cursor Position
 	auto [newCursorPos, cursorErr] = ConsoleUtil::CalcCoord(this->cursorOrigin, this->inputBuffer->GetCursor());
 	if (cursorErr) {
-		fwprintf(stderr, L"Failed to CalcCoord\n\t%s (%d)\n", cursorErr->message.c_str(), cursorErr->code);
-		return;
+		return Error(*cursorErr, L"ShoeInputBuffer@view\n");
 	}
-	// debug
-	//OutputDebugStringW(std::format(L"POS: ({}, {})\n", newCursorPos->X, newCursorPos->Y).c_str());
-	if (!::SetConsoleCursorPosition(this->stdOutHandle, *newCursorPos)) {
+
+	std::wstring input = this->inputBuffer->Get();
+	// [0m     reset text style. 
+	// [y;xH   move cursur
+	std::wstring data = std::format(L"\x1b[{};{}H\x1b[0m{}\x1b[{};{}H", this->cursorOrigin.Y + 1, this->cursorOrigin.X + 1, input, newCursorPos->Y + 1, newCursorPos->X + 1);
+
+	DWORD written = 0;
+	if (!::WriteConsoleW(this->stdOutHandle, data.data(), data.size(), &written, nullptr)) {
 		auto err = ::GetLastError();
-		fwprintf(stderr, L"Failed to ::SetConsoleCursorPosition: %d\n", err);
-		return;
+		return Error(err, L"Failed to ::WriteConsoleOutputCharacter ShowInputBuffer@view");
 	}
+	// set cursor
+	//auto [newCursorPos, cursorErr] = ConsoleUtil::CalcCoord(this->cursorOrigin, this->inputBuffer->GetCursor());
+	//if (cursorErr) {
+	//	return Error(*cursorErr, L"ShoeInputBuffer@view\n");
+	//}
+	//if (!::SetConsoleCursorPosition(this->stdOutHandle, *newCursorPos)) {
+	//	auto err = ::GetLastError();
+	//	return Error(err, L"Failed to ::SetConsoleCursorPosition");
+	//}
 
 	// padding write ' ' to the end
 	auto [endPos, endPosErr] = ConsoleUtil::CalcCoord(this->cursorOrigin, StringUtil::GetDisplayWidth(data));
 	if (endPosErr) {
-		fwprintf(stderr, L"Failed to CalcCoord\n\t%s (%d)\n", endPosErr->message.c_str(), endPosErr->code);
-		return;
+		return Error(*endPosErr, L"ShoeInputBuffer@view\n");
 	}
-	auto [info, infoErr] = ConsoleUtil::GetConsoleScreenBufferInfo();
-	if (infoErr) {
-		fwprintf(stderr, L"Failed to GetConsoleScreenBufferSize\n\t%s (%d)\n", infoErr->message.c_str(), infoErr->code);
-		return;
+	//auto [info, infoErr] = ConsoleUtil::GetConsoleScreenBufferInfo();
+	//if (infoErr) {
+	//	return Error(*infoErr, L"ShoeInputBuffer@view\n");
+	//}
+	auto [remaining, distErr] = ConsoleUtil::CalcDistance(*endPos, { screenInfo->srWindow.Right, screenInfo->srWindow.Bottom });
+	if (distErr) {
+		return Error(*distErr, L"ShoeInputBuffer@view\n");
+	}
+	written = 0;
+	if (!::FillConsoleOutputCharacterW(this->stdOutHandle, L' ', *remaining, *endPos, &written)) {
+		return Error(::GetLastError(), L"Failed to ::FillConsoleOutputCharacter ShowInputBuffer@view");
+	}
+	else {
+		return std::nullopt;
+	}
+	
+}
+
+
+OptionalError View::ShowCandidate()
+{
+	if (!this->candidate->ConsumeUpdateFlag()) {
+		return std::nullopt;
+	}
+	std::wstring text{};
+	auto candidateResult = this->candidate->Get();
+	if (!candidateResult) {
+		// No candidate
+		text = L"!";
+	}
+	else {
+		text = candidateResult->suggest;
+	}
+
+	// Padding
+	auto [info, err] = ConsoleUtil::GetConsoleScreenBufferInfo();
+	if (err) {
+		return Error(*err, L"Failed to GetConsoleScreenBuffer ShowCandidate@view");
+	}
+	size_t displayWidth = StringUtil::GetDisplayWidth(text);
+	auto [endPos, endPosError] = ConsoleUtil::CalcCoord(info->dwCursorPosition, displayWidth);
+	if (endPosError) {
+		return Error(*endPosError, L"Failed to GetDisplayWidth ShowCandidate@view");
 	}
 	auto [remaining, distErr] = ConsoleUtil::CalcDistance(*endPos, { info->srWindow.Right, info->srWindow.Bottom });
 	if (distErr) {
-		fwprintf(stderr, L"Failed to ::CalcDistance\n\t%s (%d)\n", distErr->message.c_str(), distErr->code);
-		return;
+		return Error(*distErr, L"Failed to CalcDistance ShowCandidate@view");
 	}
-	written = 0;
-	::FillConsoleOutputCharacterW(this->stdOutHandle, L' ', *remaining, *endPos, &written);
+	std::wstring padding(*remaining, L' ');
+
+	// Current Cursor Position
+	COORD cursorPos = info->dwCursorPosition;
+
+	// Show Completion
+	std::wstring s = std::format(L"\x1b[90m{}\x1b[0m{}\x1b[{};{}H", text, padding, cursorPos.Y + 1, cursorPos.X + 1); // 1 origin in Terminal Sequence 
+	DWORD written = 0;
+	if (!::WriteConsoleW(this->stdOutHandle, s.data(), s.size(), &written, nullptr)) {
+		return Error(::GetLastError(), L"Failed to ::WriteConsole ShowCandidate@view");
+	}
+
+	return std::nullopt;
 }
 
 
