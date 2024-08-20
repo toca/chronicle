@@ -1,10 +1,13 @@
 #include "view.h"
+#define NOMINMAX
 #include <Windows.h>
 #include <vector>
 #include <string>
 #include <sstream>
 #include <cstdio>
+#include <algorithm>
 
+#include "defer.h"
 #include "consoleutil.h"
 #include "stringutil.h"
 #include "result.h"
@@ -78,6 +81,10 @@ OptionalError View::ShowInputBuffer()
 	if (!this->inputBuffer->ConsumeUpdatedFlag()) {
 		return std::nullopt;
 	}
+	ConsoleUtil::HideCursor(this->stdOutHandle);
+	DEFER([this]() {
+		ConsoleUtil::ShowCursor(this->stdOutHandle);
+	});
 
 	// Screen Buffer Info
 	auto [screenInfo, screenInfoErr] = ConsoleUtil::GetConsoleScreenBufferInfo();
@@ -85,41 +92,42 @@ OptionalError View::ShowInputBuffer()
 		return Error(*screenInfoErr, L"ShoeInputBuffer@view\n");
 	}
 
-	// New Cursor Position
-	auto [newCursorPos, cursorErr] = ConsoleUtil::CalcCoord(this->cursorOrigin, this->inputBuffer->GetCursor());
-	if (cursorErr) {
-		return Error(*cursorErr, L"ShoeInputBuffer@view\n");
-	}
-
 	std::wstring input = this->inputBuffer->Get();
 	// [0m     reset text style. 
 	// [y;xH   move cursur
-	std::wstring data = std::format(L"\x1b[{};{}H\x1b[0m{}\x1b[{};{}H", this->cursorOrigin.Y + 1, this->cursorOrigin.X + 1, input, newCursorPos->Y + 1, newCursorPos->X + 1);
+	//std::wstring data = std::format(L"\x1b[{};{}H\x1b[0m{}\x1b[{};{}H",
+	//	this->cursorOrigin.Y + 1 - screenInfo->srWindow.Top,
+	//	this->cursorOrigin.X + 1 - screenInfo->srWindow.Left,
+	//	input,
+	//	newCursorPos->Y + 1 - screenInfo->srWindow.Top,
+	//	newCursorPos->X + 1 - screenInfo->srWindow.Left
+	//);
+
+	// Move cursor to output
+	::SetConsoleCursorPosition(this->stdOutHandle, this->cursorOrigin);
+	std::wstring data = input;
 
 	DWORD written = 0;
 	if (!::WriteConsoleW(this->stdOutHandle, data.data(), data.size(), &written, nullptr)) {
 		auto err = ::GetLastError();
 		return Error(err, L"Failed to ::WriteConsoleOutputCharacter ShowInputBuffer@view");
 	}
-	// set cursor
-	//auto [newCursorPos, cursorErr] = ConsoleUtil::CalcCoord(this->cursorOrigin, this->inputBuffer->GetCursor());
-	//if (cursorErr) {
-	//	return Error(*cursorErr, L"ShoeInputBuffer@view\n");
-	//}
-	//if (!::SetConsoleCursorPosition(this->stdOutHandle, *newCursorPos)) {
-	//	auto err = ::GetLastError();
-	//	return Error(err, L"Failed to ::SetConsoleCursorPosition");
-	//}
+
+	// New Cursor Position
+	auto [newCursorPos, cursorErr] = ConsoleUtil::CalcCoord(this->cursorOrigin, this->inputBuffer->GetCursor());
+	if (cursorErr) {
+		return Error(*cursorErr, L"ShoeInputBuffer@view\n");
+	}
+	if (!::SetConsoleCursorPosition(this->stdOutHandle, *newCursorPos)) {
+		auto err = ::GetLastError();
+		return Error(err, L"Failed to ::SetConsoleCursorPosition");
+	}
 
 	// padding write ' ' to the end
 	auto [endPos, endPosErr] = ConsoleUtil::CalcCoord(this->cursorOrigin, StringUtil::GetDisplayWidth(data));
 	if (endPosErr) {
 		return Error(*endPosErr, L"ShoeInputBuffer@view\n");
 	}
-	//auto [info, infoErr] = ConsoleUtil::GetConsoleScreenBufferInfo();
-	//if (infoErr) {
-	//	return Error(*infoErr, L"ShoeInputBuffer@view\n");
-	//}
 	auto [remaining, distErr] = ConsoleUtil::CalcDistance(*endPos, { screenInfo->srWindow.Right, screenInfo->srWindow.Bottom });
 	if (distErr) {
 		return Error(*distErr, L"ShoeInputBuffer@view\n");
@@ -236,14 +244,23 @@ void View::Renew()
 
 void View::Clear()
 {
-	auto [info, err] = ConsoleUtil::GetConsoleScreenBufferInfo();
+	auto [size, err] = ConsoleUtil::GetWindowSize();
 	if (err) {
-		fwprintf(stderr, L"Failed to Clear$view\n\t%s: %d\n", err->message.c_str(), err->code);
+		fwprintf(stderr, L"Failed to Clear@view\n\t%s: %d\n", err->message.c_str(), err->code);
 		return;
 	}
-	std::wstring newLine(info->srWindow.Bottom + 1, L'\n');
+	std::wstring newLine(size->Y, L'\n');
 	fwprintf(stdout, L"%s", newLine.c_str());
-	::SetConsoleCursorPosition(this->stdOutHandle, { 0, SHORT(info->dwCursorPosition.Y + 1) });
+
+	auto [info, infoErr] = ConsoleUtil::GetConsoleScreenBufferInfo();
+	if (infoErr) {
+		return;
+	}
+	
+	::SetConsoleCursorPosition(this->stdOutHandle, { info->srWindow.Left, info->srWindow.Top });
+	this->cursorOrigin = { info->srWindow.Left, info->srWindow.Top };
+	//::SetConsoleCursorPosition(this->stdOutHandle, { 0, SHORT(info->dwCursorPosition.Y + 1) });
+	//::SetConsoleCursorPosition(this->stdOutHandle, { 0, 0 });
 }
 
 

@@ -1,5 +1,5 @@
 #pragma once
-// defer //////////////////////////////////////////////////////
+
 template <typename F>
 struct DeferStruct {
     F f;
@@ -17,4 +17,3 @@ DeferStruct<F> CreateDefer(F f) {
 #define ADD_COUNTER(x)    CALL_CAT(x, __COUNTER__)
 #define DEFER(...)       auto ADD_COUNTER(_defer_) = DeferStruct(__VA_ARGS__)
 // DEFER(f) -> audo _defer_1 = DefStruct(f)
-// end defer

@@ -23,6 +23,7 @@ public:
 private:
 	Controller(std::shared_ptr<View> view, std::shared_ptr<InputBuffer> inputBuffer, std::shared_ptr<History> history, std::shared_ptr<Candidate> candidate);
 	OptionalError KeyEvent(const KEY_EVENT_RECORD& keyEvent);
+	//OptionalError WindowEvent(const WINDOW_BUFFER_SIZE_RECORD& windowEvent);
 	void Up();
 	void Down();
 	void Enter();

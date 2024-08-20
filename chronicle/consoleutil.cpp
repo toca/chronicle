@@ -146,4 +146,17 @@ namespace ConsoleUtil
 		}
 		return std::nullopt;
 	}
+
+
+	void ShowCursor(HANDLE console) {
+		// SetConsoleCursorInfo has a bug that "arbitrarily" changes the cursor shape! | -> _
+		DWORD written = 0;
+		::WriteConsoleA(console, "\x1b[?25h", 6, &written, nullptr);
+	}
+
+	void HideCursor(HANDLE console) {
+		DWORD written = 0;
+		::WriteConsoleA(console, "\x1b[?25l",6 , &written, nullptr);
+	}
+
 }

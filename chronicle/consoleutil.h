@@ -31,5 +31,9 @@ namespace ConsoleUtil
 
 	//
 	OptionalError WriteConsoleOutputEx(HANDLE console, const std::wstring& text, WORD attributes, COORD startCoord);
+
+	void ShowCursor(HANDLE console);
+
+	void HideCursor(HANDLE console);
 };
 

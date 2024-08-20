@@ -14,9 +14,7 @@
 #include "searchcontroller.h"
 #include "inputbuffer.h"
 #include "mode.h"
-
 #include "result.h"
-#include "defer.h"
 
 
 

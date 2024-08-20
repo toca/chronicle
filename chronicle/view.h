@@ -32,6 +32,7 @@ private:
 	bool enabled = false;
 	HANDLE stdOutHandle{};
 	HANDLE stdInHandle{};
+	// Pos in screen buffer
 	COORD cursorOrigin{};
 
 };

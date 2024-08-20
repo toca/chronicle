@@ -52,7 +52,7 @@ OptionalError InputBuffer::InputKey(const KEY_EVENT_RECORD& e)
 		if (e.uChar.AsciiChar <= 31 && !controlPressed) {
 			return std::nullopt;
 		}
-		::OutputDebugStringW(std::format(L"VK:{}\n", e.wVirtualKeyCode).c_str());
+
 		if (controlPressed) {
 			this->Control(e.wVirtualKeyCode);
 			return std::nullopt;
