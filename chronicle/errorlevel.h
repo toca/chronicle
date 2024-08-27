@@ -7,5 +7,5 @@ DWORD GetErrorLevelAsCode();
 
 void SetErrorLevel(DWORD code);
 
-static std::wstring GetErrorLevel();
+std::wstring GetErrorLevel();
 

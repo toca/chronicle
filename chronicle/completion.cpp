@@ -12,6 +12,9 @@ namespace Completion
 
 
 
+	// TODO 
+	// input:   "fo
+	// suggest: "foo"
 	std::vector<Item> Candidates(const std::wstring& input, const std::wstring& currentDirectoryStr)
 	{
 		bool moving = false;

@@ -6,10 +6,12 @@
 #include <algorithm>
 #include <vector>
 #include <cctype>
+#include <unordered_map>
 
 #include "tokenize.h"
 #include "parser.h"
 #include "node.h"
+#include "dynamicenvironmentvariable.h"
 #include "errorlevel.h"
 #include "error.h"
 #include "result.h"
@@ -46,10 +48,14 @@ namespace Command
 
 	std::string GetErrorMessage(DWORD code);
 
+	// Expand Environment Variable
+	Result<std::wstring> ExpandEnvVar(const std::wstring& text);
+
+
 	
 
 
-	Result<DWORD> Execute(const std::wstring& input)
+	Result<DWORD> Execute(const std::wstring& rawInput)
 	{
 		//// TODO
 		//// * More?
@@ -57,7 +63,14 @@ namespace Command
 		//// * 2>&1
 		//// * return exit code
 		//// * expand environment variables, -> ErrorLevel
-		auto [tokens, tokenErr] = Tokenize(input);
+
+		// Environment Variable
+		auto [input, expandErr] = ExpandEnvVar(rawInput);
+		if (expandErr) {
+			return { std::nullopt, expandErr };
+		}
+
+		auto [tokens, tokenErr] = Tokenize(*input);
 		if (tokenErr) {
 			return { std::nullopt, tokenErr };
 		}
@@ -443,4 +456,67 @@ namespace Command
 	}
 
 
+	Result<std::wstring> ExpandEnvVar(const std::wstring& text)
+	{
+		std::wstring result{};
+		bool inEnvName = false;
+		std::wstring envName{};
+		for (int i = 0; i < text.size(); i++) {
+			auto c = text[i];
+			if (c == L'%') {
+				if (inEnvName) { // End of Environment Name
+					DWORD size = ::GetEnvironmentVariableW(envName.c_str(), nullptr, 0);
+					if (size == 0) { // failed
+						DWORD lastError = ::GetLastError();
+						if (lastError != ERROR_ENVVAR_NOT_FOUND) {
+							return { std::nullopt, Error(lastError, L"Failed to ::GetEnvironmentVariable@command") };
+						}
+						// Replace dynamic environment variable
+						auto [dynamicEnvRes, dynamicEnvErr] = Command::ExpandDynamicEnv(envName);
+						if (dynamicEnvErr) {
+							if (dynamicEnvErr->code == ERROR_ENVVAR_NOT_FOUND) {
+								result += L'%' + envName;
+								envName = L"";
+								i--;
+								inEnvName = false;
+								continue;
+							}
+							return { std::nullopt, Error(*dynamicEnvErr, L"Failed to ExpandDynamicEnv@command") };
+						}
+						result += *dynamicEnvRes;
+						envName = L"";
+					}
+					else {
+						// Get env value
+						std::wstring expanded(size - 1, L'\0');
+						if (!::GetEnvironmentVariableW(envName.c_str(), expanded.data(), size)) {
+							return { std::nullopt, Error(::GetLastError(), L"Failed to ::GetEnvironmentVariable@command") };
+						}
+						// Expand recursively
+						auto [expandRes, expandErr] = ExpandEnvVar(expanded);
+						if (expandErr) {
+							return { std::nullopt, Error(*expandErr, L"Failed to ExpandEnvVar@command") };
+						}
+						result += expandRes.value();
+						envName = L"";
+					}
+				}
+				inEnvName = !inEnvName;
+				continue;
+			}
+			else {
+				if (inEnvName) {
+					envName += c;
+				}
+				else {
+					result += c;
+				}
+				continue;
+			}
+		}
+		if (inEnvName) {
+			result += L"%" + envName;
+		}
+		return { result, std::nullopt };
+	}
 }
