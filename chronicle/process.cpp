@@ -179,6 +179,17 @@ OptionalError Process::Start()
 		}
 		break;
 	}
+	case Type::TYPE:
+	{
+		auto [code, err] = InternalCommand::Type(arguments, this->output);
+		if (!err) {
+			this->exitCode = *code;
+		}
+		else {
+			return err;
+		}
+		break;
+	}
 	case Type::EXTERNAL:
 		break;
 	default:
@@ -307,6 +318,9 @@ Type ClassifyCommand(const std::wstring& command)
 	}
 	else if (_wcsicmp(command.c_str(), L"cls") == 0) {
 		return Type::CLS;
+	}
+	else if (_wcsicmp(command.c_str(), L"type") == 0) {
+		return Type::TYPE;
 	}
 	else if (InternalCommand::IsDriveLetter(command)) {
 		return Type::CHANGE_DRIVE;

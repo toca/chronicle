@@ -12,7 +12,8 @@ namespace InternalCommand
 	Result<DWORD> Set(const std::wstring& param, HANDLE out);
 	DWORD Echo(const std::wstring& param, HANDLE out);
 	Result<DWORD> More(const std::wstring& param, HANDLE out);
-	Result <DWORD> Cls(HANDLE out);
+	Result<DWORD> Cls(HANDLE out);
+	Result<DWORD> Type(const std::wstring& param, HANDLE out);
 	bool IsDriveLetter(const std::wstring& str);
 
 };

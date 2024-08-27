@@ -331,6 +331,15 @@ namespace InternalCommand
 		return  { 0, std::nullopt };
 	}
 
+
+	Result<DWORD> Type(const std::wstring& param, HANDLE out)
+	{
+		auto [code, err] = System(L"type " + param, out);
+		if (err) return { std::nullopt, err };
+		return { *code, std::nullopt };
+	}
+
+
 	// internal functions ---------------------------------
 	bool IsDriveLetter(const std::wstring& str)
 	{

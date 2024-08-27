@@ -17,7 +17,8 @@ enum class Type
 	SET,
 	ECHO,
 	MORE,
-	CLS
+	CLS,
+	TYPE
 };
 
 class Process
