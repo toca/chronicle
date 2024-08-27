@@ -38,10 +38,12 @@ std::optional<Error> History::Load(std::wistream& stream)
 void History::Add(const std::wstring& line)
 {
 	if (line.size()) {
-		this->data.remove(line);
+		bool removed = this->data.remove(line);
 		this->data.push_back(line);
-		this->output << line << std::endl;
-		this->output.flush();
+		if (!removed) {
+			this->output << line << std::endl;
+			this->output.flush();
+		}
 	}
 	this->Reset();
 }
