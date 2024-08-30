@@ -64,6 +64,10 @@ namespace Command
 		wss.imbue(std::locale(""));
 		wss << std::put_time(&now_tm, L"%H:%M:%S");
 
+		// Milli sec
+		auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+		wss << L'.' << std::setw(3) << std::setfill(L'0') << now_ms.count();
+
 		return wss.str();
 	}
 
