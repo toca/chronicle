@@ -229,9 +229,15 @@ void Controller::Complement(bool reverse)
 
 void Controller::Commit()
 {
-	auto result = this->candidate->Get();
-	if (!result || result->suggest.empty()) {
+	auto item = this->candidate->Get();
+	if (!item || item->suggest.empty()) {
 		return;
 	}
-	this->inputBuffer->Append(result->suggest);
+	this->inputBuffer->Append(item->suggest);
+
+	// TODO be a function
+	wchar_t currentDir[MAX_PATH];
+	::GetCurrentDirectoryW(MAX_PATH, currentDir);
+	auto result = Completion::Candidates(this->inputBuffer->GetInputToCursor(), currentDir);
+	this->candidate->Set(result);
 }

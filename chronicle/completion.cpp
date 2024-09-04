@@ -42,6 +42,18 @@ namespace Completion
 			}
 		}
 
+		// Remove double quotation
+		bool quoted = current.find(L'"') != std::wstring::npos;
+		if (quoted) {
+			std::wstring removed = L"";
+			for (wchar_t ch : current) {
+				if (ch != L'"') {
+					removed += ch;
+				}
+			}
+			current = removed;
+		}
+
 		// Find directory items
 		std::vector<Item> result{};
 		for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(targetDir)) {
@@ -55,7 +67,12 @@ namespace Completion
 				if (entry.is_directory()) {
 					filename += L"\\";
 				}
-				result.push_back({ filename, filename.substr(current.length())});
+				if (quoted) {
+					result.push_back({ filename, filename.substr(current.length()) + L"\"" });
+				}
+				else {
+					result.push_back({ filename, filename.substr(current.length()) });
+				}
 			}
 		}
 		return result;
